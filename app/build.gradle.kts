@@ -18,8 +18,8 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
-        buildConfigField("String", "GITHUB_OWNER", "\"\"")
-        buildConfigField("String", "GITHUB_REPO", "\"\"")
+        buildConfigField("String", "GITHUB_OWNER", "\"judgementbutcher\"")
+        buildConfigField("String", "GITHUB_REPO", "\"LiteChat\"")
     }
 
     buildFeatures {

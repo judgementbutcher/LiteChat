@@ -65,9 +65,9 @@ Streaming output is persisted at a throttled interval. Cancellation, network int
 
 No API key is required by the automated tests. TLS MockWebServer fixtures cover streaming, malformed events, 401, 429, request mapping, multimodal payloads and search fields. Instrumentation sources include Room cascade/version tests and a first-run Compose smoke test.
 
-## Optional update check
+## Manual update check
 
-The manual GitHub Release check is compiled out of the UI by default. To enable it, set the `GITHUB_OWNER` and `GITHUB_REPO` `BuildConfig` fields in `app/build.gradle.kts`, then rebuild. It only fetches release metadata when the user taps the check button; it never downloads or installs an update.
+This build checks releases from `judgementbutcher/LiteChat`. It only fetches release metadata when the user taps the check button; it never downloads or installs an update. Forks can change or clear the `GITHUB_OWNER` and `GITHUB_REPO` `BuildConfig` fields in `app/build.gradle.kts`.
 
 ## Project layout
 

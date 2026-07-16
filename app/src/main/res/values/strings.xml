@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiteChat</string>
+    <string name="new_chat">New chat</string>
+    <string name="conversations">Conversations</string>
+    <string name="providers">Providers</string>
+    <string name="templates">Prompt templates</string>
+    <string name="data_management">Data</string>
+    <string name="about">About</string>
+    <string name="search_conversations">Search conversations</string>
+    <string name="message_hint">Message LiteChat</string>
+    <string name="send">Send</string>
+    <string name="stop">Stop</string>
+    <string name="attach">Attach</string>
+    <string name="copy">Copy</string>
+    <string name="edit">Edit</string>
+    <string name="retry">Retry</string>
+    <string name="rename">Rename</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="test_connection">Test connection</string>
+    <string name="api_key">API key</string>
+    <string name="base_url">HTTPS base URL</string>
+    <string name="model">Model</string>
+    <string name="provider">Provider</string>
+    <string name="native_search">Native web search</string>
+    <string name="system_prompt">System prompt</string>
+    <string name="export_backup">Export JSON backup</string>
+    <string name="import_backup">Import JSON backup</string>
+    <string name="export_markdown">Export this chat as Markdown</string>
+    <string name="language">Language</string>
+    <string name="theme">Theme</string>
+    <string name="follow_system">Follow system</string>
+    <string name="light">Light</string>
+    <string name="dark">Dark</string>
+    <string name="no_key_hint">Add an API key in Providers to start chatting. Keys stay encrypted on this device.</string>
+    <string name="empty_chat">Start a private, local-first conversation.</string>
+    <string name="add_provider">Add provider</string>
+    <string name="add_model">Add model</string>
+    <string name="supports_vision">Supports images</string>
+    <string name="supports_search">Supports native search</string>
+    <string name="settings">Settings</string>
+    <string name="privacy_summary">No account, ads, analytics, remote configuration, or crash collection. Requests go directly from your device to the provider you configure.</string>
+</resources>

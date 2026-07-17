@@ -34,6 +34,10 @@ fun AboutScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                     label = { Text(when (mode) { ThemeMode.SYSTEM -> stringResource(R.string.follow_system); ThemeMode.LIGHT -> stringResource(R.string.light); ThemeMode.DARK -> stringResource(R.string.dark) }) }
                 ) }
             }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(stringResource(R.string.dynamic_color), modifier = Modifier.weight(1f))
+                Switch(settings.dynamicColor, viewModel::setDynamicColor)
+            }
             Text(stringResource(R.string.language), style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("system" to stringResource(R.string.follow_system), "en" to "English", "zh-CN" to "简体中文").forEach { (tag, label) ->
@@ -44,16 +48,16 @@ fun AboutScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                 }
             }
             HorizontalDivider()
-            Text("Default generation parameters", style = MaterialTheme.typography.titleMedium)
-            Text("Temperature · ${"%.1f".format(settings.temperature)}")
+            Text(stringResource(R.string.default_parameters), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.temperature, settings.temperature))
             Slider(settings.temperature, { viewModel.setParameters(it, settings.topP) }, valueRange = 0f..2f, steps = 19)
-            Text("Top P · ${"%.2f".format(settings.topP)}")
+            Text(stringResource(R.string.top_p, settings.topP))
             Slider(settings.topP, { viewModel.setParameters(settings.temperature, it) }, valueRange = 0f..1f, steps = 19)
             if (viewModel.updateCheckEnabled) {
                 HorizontalDivider()
-                OutlinedButton(viewModel::checkForUpdate) { Text("Check GitHub Releases") }
+                OutlinedButton(viewModel::checkForUpdate) { Text(stringResource(R.string.check_updates)) }
             }
-            Text("MIT License · Source-first Android app", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.license_summary), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

@@ -12,6 +12,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.litechat.android.R
 import app.litechat.android.data.model.*
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Plus
 import java.util.UUID
 
 @Composable
@@ -22,7 +24,13 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
     var editingProvider by remember { mutableStateOf<ProviderConfigEntity?>(null) }
     var addProvider by remember { mutableStateOf(false) }
     var editingModel by remember { mutableStateOf<ModelConfigEntity?>(null) }
-    ScreenScaffold(stringResource(R.string.providers), openDrawer) { padding ->
+    ScreenScaffold(
+        stringResource(R.string.providers),
+        openDrawer,
+        floatingActionButton = {
+            FloatingActionButton({ addProvider = true }) { Icon(Lucide.Plus, stringResource(R.string.add_provider)) }
+        }
+    ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
@@ -30,11 +38,9 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
         ) {
             item {
                 Text(stringResource(R.string.no_key_hint), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(10.dp))
-                Button(onClick = { addProvider = true }) { Text(stringResource(R.string.add_provider)) }
             }
             items(providers, key = { it.id }) { provider ->
-                ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
@@ -65,6 +71,7 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                             }
                         }
                     }
+                    HorizontalDivider()
                 }
             }
         }
@@ -125,8 +132,8 @@ private fun ModelDialog(existing: ModelConfigEntity, dismiss: () -> Unit, save: 
         title = { Text(stringResource(R.string.model)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(id, { id = it }, label = { Text("Model ID") }, enabled = existing.modelId.isBlank(), singleLine = true)
-                OutlinedTextField(name, { name = it }, label = { Text("Display name") }, singleLine = true)
+                OutlinedTextField(id, { id = it }, label = { Text(stringResource(R.string.model_id)) }, enabled = existing.modelId.isBlank(), singleLine = true)
+                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.display_name)) }, singleLine = true)
                 Row { Checkbox(vision, { vision = it }); Text(stringResource(R.string.supports_vision), Modifier.padding(top = 12.dp)) }
                 Row { Checkbox(search, { search = it }); Text(stringResource(R.string.supports_search), Modifier.padding(top = 12.dp)) }
             }

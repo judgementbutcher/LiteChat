@@ -5,13 +5,13 @@ LiteChat is a lightweight, native Android AI chat client. It talks directly from
 - Kotlin, Jetpack Compose, Material 3, Room and DataStore
 - Android 12+ (`minSdk 31`), `compileSdk` / `targetSdk 35`
 - OpenAI Responses, Anthropic Messages, Gemini `generateContent`, and OpenAI-compatible Chat Completions
-- Local multi-conversation history, search, response versions, prompt templates, attachments and exports
+- Local conversation search, pinning, archive/restore, response versions, prompt templates, attachments and exports
 - English and Simplified Chinese; light, dark and Android dynamic color
 - MIT licensed
 
 ## Install the debug APK
 
-The generated artifact is `artifacts/LiteChat-0.1.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
+The generated artifact is `artifacts/LiteChat-0.2.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
 
 To build it yourself:
 
@@ -25,7 +25,7 @@ Set `sdk.dir` in the ignored `local.properties` file if `ANDROID_HOME` is not co
 
 1. Open **Providers** and select a preset or add a custom provider.
 2. Enter the API key issued by that provider, save, then use **Test connection**. A successful test imports the remote model list; models can always be added manually.
-3. Create a conversation. Open its gear menu to choose the provider, model, system prompt and optional native-search capability.
+3. Create a conversation. Choose the model from the composer; native search appears only for models that support it. Conversation title and system prompt live in the top-bar menu.
 4. Send a message. Use **Stop** to cancel; partial output is retained. **Retry** creates another response version without deleting earlier versions.
 
 Preset endpoints:
@@ -48,7 +48,7 @@ Room is the single source of truth for conversations. Requests are rebuilt from 
 
 API keys are encrypted with a non-exportable Android Keystore AES-GCM key. Ciphertext is stored under the app's no-backup private directory. Keys are not stored in Room, DataStore, logs, JSON backups, Markdown exports, or request bodies. Android backup and device transfer are disabled for all app data.
 
-Deleting the app deletes its local database, attachments and keys. Use **Data → Export JSON backup** first if the conversation history is needed. Backup schema `1` includes provider configuration without keys, models, conversations, response versions, attachment data and templates. Import does not change keys already stored on the receiving device.
+Deleting the app deletes its local database, attachments and keys. Use **Data → Export JSON backup** first if the conversation history is needed. Backup schema `2` includes provider configuration without keys, models, pinned/archive conversation state, response versions, attachment data and templates. Schema `1` backups remain importable, and import does not change keys already stored on the receiving device.
 
 ## Attachments and rendering
 
@@ -57,7 +57,7 @@ Deleting the app deletes its local database, attachments and keys. Use **Data �
 - UTF-8, UTF-8 BOM, UTF-16 LE/BE TXT and Markdown files are extracted locally.
 - PDFs are parsed locally; OCR is not provided. A scanned PDF with no extractable text produces an explicit error.
 - Text injection is capped at 100,000 characters per file and visibly marked as truncated.
-- Responses render lightweight Markdown structure, fenced code blocks and common LaTeX symbols/blocks without loading remote web content.
+- Responses render headings, lists, quotes, links, tables and fenced code blocks through the Markdown renderer. Remote images are not loaded; common LaTeX blocks remain locally rendered.
 
 ## Failure behavior
 
@@ -82,7 +82,7 @@ app/src/main/java/app/litechat/android/
 
 ## Scope
 
-This initial release intentionally excludes accounts, cloud sync, RAG/knowledge bases, MCP/plugin execution, arbitrary tool execution, OCR, audio/video, Office documents, a generic web scraper, silent updating and release signing.
+LiteChat intentionally excludes accounts, cloud sync, RAG/knowledge bases, MCP/plugin execution, arbitrary tool execution, OCR, audio/video, Office documents, a generic web scraper, silent updating and release signing.
 
 ## License
 

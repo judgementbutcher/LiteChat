@@ -14,8 +14,8 @@ android {
         applicationId = "app.litechat.android"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "GITHUB_OWNER", "\"judgementbutcher\"")
@@ -65,6 +65,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
     implementation(libs.pdfbox.android)
+    implementation(libs.lucide.icons)
+    implementation(libs.markdown.renderer.m3)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)

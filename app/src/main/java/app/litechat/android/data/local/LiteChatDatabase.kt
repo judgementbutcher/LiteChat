@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import app.litechat.android.data.model.*
 
 @Database(
@@ -17,7 +19,7 @@ import app.litechat.android.data.model.*
         AttachmentEntity::class,
         PromptTemplateEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -31,10 +33,16 @@ abstract class LiteChatDatabase : RoomDatabase() {
     abstract fun promptTemplateDao(): PromptTemplateDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE conversations ADD COLUMN pinnedAt INTEGER")
+            }
+        }
+
         fun create(context: Context): LiteChatDatabase = Room.databaseBuilder(
             context.applicationContext,
             LiteChatDatabase::class.java,
             "litechat.db"
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
     }
 }

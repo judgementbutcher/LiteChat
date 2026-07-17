@@ -32,7 +32,7 @@ fun DataScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Backup schema v1 includes provider settings (without keys), models, conversations, response versions, attachments, and templates.")
+            Text(stringResource(R.string.backup_summary))
             Button(onClick = { viewModel.exportBackup { text -> pendingJson = text; exportJson.launch("litechat-backup.json") } }) {
                 Text(stringResource(R.string.export_backup))
             }
@@ -41,7 +41,7 @@ fun DataScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             Button(onClick = { viewModel.exportMarkdown { text -> pendingMarkdown = text; exportMarkdown.launch("litechat-conversation.md") } }) {
                 Text(stringResource(R.string.export_markdown))
             }
-            Text("Import never reads or replaces encrypted API keys.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.backup_keys_note), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

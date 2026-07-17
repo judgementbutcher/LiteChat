@@ -60,7 +60,8 @@ data class ConversationEntity(
     val searchEnabled: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val archived: Boolean = false
+    val archived: Boolean = false,
+    val pinnedAt: Long? = null
 )
 
 @Serializable

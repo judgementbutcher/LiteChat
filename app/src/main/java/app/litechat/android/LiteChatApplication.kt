@@ -29,6 +29,7 @@ class LiteChatApplication : Application() {
 }
 
 class AppContainer(application: Application) {
+    val resources = application.resources
     val database = LiteChatDatabase.create(application)
     val settings = UserSettingsStore(application)
     val secrets = SecretStore(application)

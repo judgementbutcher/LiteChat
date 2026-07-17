@@ -34,8 +34,9 @@ interface ModelDao {
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations WHERE archived = 0 ORDER BY updatedAt DESC") fun observeAll(): Flow<List<ConversationEntity>>
-    @Query("SELECT DISTINCT c.* FROM conversations c LEFT JOIN messages m ON m.conversationId = c.id WHERE c.archived = 0 AND (:query = '' OR c.title LIKE '%' || :query || '%' OR m.content LIKE '%' || :query || '%') ORDER BY c.updatedAt DESC") fun observeSearch(query: String): Flow<List<ConversationEntity>>
+    @Query("SELECT * FROM conversations WHERE archived = 0 ORDER BY CASE WHEN pinnedAt IS NULL THEN 1 ELSE 0 END, pinnedAt DESC, updatedAt DESC") fun observeAll(): Flow<List<ConversationEntity>>
+    @Query("SELECT DISTINCT c.* FROM conversations c LEFT JOIN messages m ON m.conversationId = c.id WHERE c.archived = 0 AND (:query = '' OR c.title LIKE '%' || :query || '%' OR m.content LIKE '%' || :query || '%') ORDER BY CASE WHEN c.pinnedAt IS NULL THEN 1 ELSE 0 END, c.pinnedAt DESC, c.updatedAt DESC") fun observeSearch(query: String): Flow<List<ConversationEntity>>
+    @Query("SELECT DISTINCT c.* FROM conversations c LEFT JOIN messages m ON m.conversationId = c.id WHERE c.archived = 1 AND (:query = '' OR c.title LIKE '%' || :query || '%' OR m.content LIKE '%' || :query || '%') ORDER BY c.updatedAt DESC") fun observeArchived(query: String): Flow<List<ConversationEntity>>
     @Query("SELECT * FROM conversations ORDER BY updatedAt DESC") suspend fun getAll(): List<ConversationEntity>
     @Query("SELECT * FROM conversations WHERE id = :id") fun observe(id: String): Flow<ConversationEntity?>
     @Query("SELECT * FROM conversations WHERE id = :id") suspend fun get(id: String): ConversationEntity?
@@ -53,6 +54,7 @@ interface MessageDao {
     @Upsert suspend fun upsert(value: MessageEntity)
     @Upsert suspend fun upsertAll(values: List<MessageEntity>)
     @Update suspend fun update(value: MessageEntity)
+    @Query("DELETE FROM messages WHERE id IN (:ids)") suspend fun deleteByIds(ids: List<String>)
 }
 
 @Dao

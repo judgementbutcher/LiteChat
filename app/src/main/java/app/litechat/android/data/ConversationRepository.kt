@@ -1,6 +1,7 @@
 package app.litechat.android.data
 
 import android.os.SystemClock
+import androidx.room.withTransaction
 import app.litechat.android.data.local.LiteChatDatabase
 import app.litechat.android.data.model.*
 import app.litechat.android.data.settings.UserSettingsStore
@@ -9,6 +10,7 @@ import app.litechat.android.security.SecretStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.UUID
+import java.io.File
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 class ConversationRepository(
@@ -22,6 +24,7 @@ class ConversationRepository(
     val models = db.modelDao().observeAll()
     val templates = db.promptTemplateDao().observeAll()
     fun searchConversations(query: String) = db.conversationDao().observeSearch(query.trim())
+    fun archivedConversations(query: String) = db.conversationDao().observeArchived(query.trim())
 
     fun conversation(id: String) = db.conversationDao().observe(id)
     fun messages(id: String) = db.messageDao().observeForConversation(id)
@@ -34,15 +37,40 @@ class ConversationRepository(
         val id = UUID.randomUUID().toString()
         db.conversationDao().upsert(ConversationEntity(
             id = id,
-            title = "New chat",
+            title = "",
             providerId = providerId ?: picked?.providerId,
             modelId = modelId ?: picked?.modelId
         ))
         return id
     }
 
-    suspend fun updateConversation(value: ConversationEntity) = db.conversationDao().upsert(value.copy(updatedAt = System.currentTimeMillis()))
-    suspend fun deleteConversation(value: ConversationEntity) = db.conversationDao().delete(value)
+    suspend fun updateConversation(value: ConversationEntity) {
+        val selectedModel = value.providerId?.let { providerId ->
+            value.modelId?.let { modelId -> db.modelDao().get(providerId, modelId) }
+        }
+        require(value.providerId == null || value.modelId == null || selectedModel?.enabled == true) {
+            "The selected model is unavailable."
+        }
+        db.conversationDao().upsert(value.copy(
+            searchEnabled = value.searchEnabled && selectedModel?.supportsSearch == true,
+            updatedAt = System.currentTimeMillis()
+        ))
+    }
+
+    suspend fun renameConversation(value: ConversationEntity, title: String) =
+        updateConversation(value.copy(title = title.trim().ifBlank { "New chat" }))
+
+    suspend fun setPinned(value: ConversationEntity, pinned: Boolean) =
+        db.conversationDao().upsert(value.copy(pinnedAt = if (pinned) System.currentTimeMillis() else null))
+
+    suspend fun setArchived(value: ConversationEntity, archived: Boolean) =
+        db.conversationDao().upsert(value.copy(archived = archived, pinnedAt = if (archived) null else value.pinnedAt))
+
+    suspend fun deleteConversation(value: ConversationEntity) {
+        val files = db.attachmentDao().getForConversation(value.id).map { it.localPath }
+        db.conversationDao().delete(value)
+        deleteLocalFiles(files)
+    }
 
     suspend fun send(conversationId: String, content: String, pending: List<ChatAttachment>) {
         require(content.isNotBlank() || pending.isNotEmpty())
@@ -59,7 +87,7 @@ class ConversationRepository(
             )
         })
         val conversation = requireNotNull(db.conversationDao().get(conversationId))
-        val title = if (conversation.title == "New chat") content.trim().lineSequence().firstOrNull().orEmpty().ifBlank { pending.first().displayName }.take(48) else conversation.title
+        val title = if (conversation.title.isBlank() || conversation.title == "New chat") content.trim().lineSequence().firstOrNull().orEmpty().ifBlank { pending.first().displayName }.take(48) else conversation.title
         db.conversationDao().upsert(conversation.copy(title = title, updatedAt = now))
         val assistantId = UUID.randomUUID().toString()
         db.messageDao().upsert(MessageEntity(assistantId, conversationId, "assistant", "", createdAt = now + 1, updatedAt = now + 1))
@@ -137,6 +165,39 @@ class ConversationRepository(
         db.messageDao().update(message.copy(content = content.trim(), updatedAt = System.currentTimeMillis()))
     }
 
+    suspend fun editAndRegenerate(messageId: String, content: String) {
+        require(content.isNotBlank())
+        val target = requireNotNull(db.messageDao().get(messageId))
+        require(target.role == "user")
+        val ordered = db.messageDao().getForConversation(target.conversationId)
+        val targetIndex = ordered.indexOfFirst { it.id == messageId }
+        require(targetIndex >= 0)
+        val removed = ordered.drop(targetIndex + 1)
+        val removedIds = removed.map { it.id }
+        val files = db.attachmentDao().getForConversation(target.conversationId)
+            .filter { it.messageId in removedIds }
+            .map { it.localPath }
+        val assistantId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        db.withTransaction {
+            db.messageDao().update(target.copy(content = content.trim(), updatedAt = now))
+            if (removedIds.isNotEmpty()) db.messageDao().deleteByIds(removedIds)
+            db.messageDao().upsert(MessageEntity(
+                id = assistantId,
+                conversationId = target.conversationId,
+                role = "assistant",
+                content = "",
+                createdAt = maxOf(now, target.createdAt + 1),
+                updatedAt = now
+            ))
+            db.conversationDao().get(target.conversationId)?.let {
+                db.conversationDao().upsert(it.copy(updatedAt = now))
+            }
+        }
+        deleteLocalFiles(files)
+        generate(target.conversationId, assistantId)
+    }
+
     suspend fun saveProvider(provider: ProviderConfigEntity, apiKey: String?) {
         require(provider.baseUrl.startsWith("https://") && provider.baseUrl.toHttpUrlOrNull() != null) { "A valid HTTPS URL is required." }
         db.providerDao().upsert(provider.copy(baseUrl = provider.baseUrl.trimEnd('/'), updatedAt = System.currentTimeMillis()))
@@ -154,4 +215,10 @@ class ConversationRepository(
     suspend fun deleteTemplate(value: PromptTemplateEntity) = db.promptTemplateDao().delete(value)
 
     private fun AttachmentEntity.toChatAttachment() = ChatAttachment(displayName, mimeType, localPath, extractedText, truncated)
+
+    private fun deleteLocalFiles(paths: List<String>) {
+        paths.asSequence().filter { it.isNotBlank() }.distinct().forEach { path ->
+            runCatching { File(path).takeIf(File::isFile)?.delete() }
+        }
+    }
 }

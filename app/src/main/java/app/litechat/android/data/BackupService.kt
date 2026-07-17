@@ -16,7 +16,7 @@ data class BackupAttachment(val entity: AttachmentEntity, val dataBase64: String
 
 @Serializable
 data class BackupPayload(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 2,
     val exportedAt: Long = System.currentTimeMillis(),
     val providers: List<ProviderConfigEntity>,
     val models: List<ModelConfigEntity>,
@@ -44,7 +44,7 @@ class BackupService(private val context: Context, private val db: LiteChatDataba
 
     suspend fun importJson(raw: String) = withContext(Dispatchers.IO) {
         val payload = json.decodeFromString<BackupPayload>(raw)
-        require(payload.schemaVersion == 1) { "Unsupported backup schema ${payload.schemaVersion}." }
+        require(payload.schemaVersion in 1..2) { "Unsupported backup schema ${payload.schemaVersion}." }
         db.clearAllTables()
         db.providerDao().upsertAll(payload.providers)
         db.modelDao().upsertAll(payload.models)

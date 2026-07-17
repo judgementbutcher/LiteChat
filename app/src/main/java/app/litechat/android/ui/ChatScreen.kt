@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,6 +96,15 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         if (followOutput && uiState.messages.isNotEmpty()) {
             withFrameNanos { }
             listState.scrollToItem(uiState.messages.size)
+        }
+    }
+    LaunchedEffect(followOutput, uiState.messages.size) {
+        if (!followOutput || uiState.messages.isEmpty()) return@LaunchedEffect
+        snapshotFlow { listState.canScrollForward }.collect { canScrollForward ->
+            if (canScrollForward) {
+                withFrameNanos { }
+                listState.scrollToItem(uiState.messages.size)
+            }
         }
     }
 
@@ -194,7 +204,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                             }
                         }
                     }
-                    item(key = "bottom-anchor") { Spacer(Modifier.height(1.dp)) }
+                    item(key = "bottom-anchor") { Spacer(Modifier.fillMaxWidth().height(4.dp).testTag("chat-bottom-anchor")) }
                 }
             }
             AnimatedVisibility(

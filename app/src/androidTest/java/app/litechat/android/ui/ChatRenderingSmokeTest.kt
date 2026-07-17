@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.espresso.Espresso.onView
@@ -97,9 +98,16 @@ class ChatRenderingSmokeTest {
             compose.waitForIdle()
             onView(withText(containsString("Lagrange mean value theorem"))).check(matches(isDisplayed()))
 
+            val longMarkdown = markdown + "\n\n" + (1..24).joinToString("\n\n") {
+                "Streaming paragraph $it keeps the response tall while output is still arriving."
+            }
+            database.variantDao().upsert(streaming.copy(content = longMarkdown, updatedAt = System.currentTimeMillis()))
+            compose.waitForIdle()
+            compose.onNodeWithTag("chat-bottom-anchor").assertIsDisplayed()
+
             database.variantDao().upsert(
                 streaming.copy(
-                    content = markdown,
+                    content = longMarkdown,
                     status = MessageStatus.COMPLETE,
                     updatedAt = System.currentTimeMillis()
                 )
@@ -107,7 +115,6 @@ class ChatRenderingSmokeTest {
             compose.waitForIdle()
             delay(1_000)
 
-            compose.onNodeWithText("Prove the Lagrange mean value theorem.").assertIsDisplayed()
             onView(withText(containsString("Lagrange mean value theorem"))).check(matches(isDisplayed()))
         }
     }

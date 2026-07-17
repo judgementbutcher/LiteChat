@@ -119,13 +119,19 @@ class OpenAiCompatibleAdapter(client: OkHttpClient) : BaseAdapter(client) {
                 }
             }
         }
+        if (r.searchEnabled) {
+            if (r.baseUrl.contains("openrouter.ai", ignoreCase = true)) {
+                putJsonArray("plugins") { addJsonObject {
+                    put("id", "web")
+                    put("max_results", 5)
+                } }
+            } else {
+                putJsonArray("tools") { addJsonObject { put("type", "web_search") } }
+            }
+        }
     }
 
     override fun stream(request: ChatRequest, apiKey: String): Flow<ChatEvent> = flow {
-        if (request.searchEnabled) throw ProviderException(
-            ProviderException.Category.UNSUPPORTED,
-            "Native search is not enabled for generic OpenAI-compatible providers."
-        )
         sse.execute(request(endpoint(request.baseUrl, "chat/completions"), apiKey, body(request))).collect { (_, data) ->
             if (data == "[DONE]") { emit(ChatEvent.Completed); return@collect }
             val root = runCatching { wireJson.parseToJsonElement(data).jsonObject }.getOrElse {

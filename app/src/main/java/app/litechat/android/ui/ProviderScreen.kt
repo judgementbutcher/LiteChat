@@ -61,11 +61,8 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                             Row(Modifier.fillMaxWidth()) {
                                 Column(Modifier.weight(1f)) {
                                     Text(model.displayName.ifBlank { model.modelId })
-                                    Text(buildString {
-                                        append(model.modelId)
-                                        if (model.supportsVision) append(" · vision")
-                                        if (model.supportsSearch) append(" · search")
-                                    }, style = MaterialTheme.typography.bodySmall)
+                                    Text(model.modelId, style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.capabilities_auto), style = MaterialTheme.typography.labelSmall)
                                 }
                                 TextButton(onClick = { editingModel = model }) { Text(stringResource(R.string.edit)) }
                             }
@@ -125,8 +122,6 @@ private fun ProviderDialog(
 private fun ModelDialog(existing: ModelConfigEntity, dismiss: () -> Unit, save: (ModelConfigEntity) -> Unit) {
     var id by remember { mutableStateOf(existing.modelId) }
     var name by remember { mutableStateOf(existing.displayName) }
-    var vision by remember { mutableStateOf(existing.supportsVision) }
-    var search by remember { mutableStateOf(existing.supportsSearch) }
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(R.string.model)) },
@@ -134,11 +129,10 @@ private fun ModelDialog(existing: ModelConfigEntity, dismiss: () -> Unit, save: 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(id, { id = it }, label = { Text(stringResource(R.string.model_id)) }, enabled = existing.modelId.isBlank(), singleLine = true)
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.display_name)) }, singleLine = true)
-                Row { Checkbox(vision, { vision = it }); Text(stringResource(R.string.supports_vision), Modifier.padding(top = 12.dp)) }
-                Row { Checkbox(search, { search = it }); Text(stringResource(R.string.supports_search), Modifier.padding(top = 12.dp)) }
+                Text(stringResource(R.string.capabilities_auto_detail), style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = { save(existing.copy(modelId = id.trim(), displayName = name.ifBlank { id.trim() }, supportsVision = vision, supportsSearch = search)) }, enabled = id.isNotBlank()) { Text(stringResource(R.string.save)) } },
+        confirmButton = { TextButton(onClick = { save(existing.copy(modelId = id.trim(), displayName = name.ifBlank { id.trim() })) }, enabled = id.isNotBlank()) { Text(stringResource(R.string.save)) } },
         dismissButton = { TextButton(dismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

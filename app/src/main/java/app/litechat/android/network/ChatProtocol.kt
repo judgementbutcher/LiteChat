@@ -2,6 +2,8 @@ package app.litechat.android.network
 
 import app.litechat.android.data.model.ProtocolKind
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 data class ChatAttachment(
     val displayName: String,
@@ -65,6 +67,17 @@ object ProviderErrorMapper {
             ProviderException.Category.SERVER -> "The provider is temporarily unavailable."
             else -> "The provider rejected the request."
         }
-        return ProviderException(category, guidance, code)
+        val providerDetail = runCatching {
+            val root = wireJson.parseToJsonElement(body).jsonObject
+            root["error"]?.let { error ->
+                runCatching { error.jsonObject["message"]?.jsonPrimitive?.content }.getOrNull()
+                    ?: runCatching { error.jsonPrimitive.content }.getOrNull()
+            } ?: root["message"]?.jsonPrimitive?.content
+        }.getOrNull()?.trim()?.take(500)
+        val message = providerDetail
+            ?.takeIf { it.isNotBlank() && !guidance.contains(it, ignoreCase = true) }
+            ?.let { "$guidance\n\nProvider response: $it" }
+            ?: guidance
+        return ProviderException(category, message, code)
     }
 }

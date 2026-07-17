@@ -52,7 +52,6 @@ class ConversationRepository(
             "The selected model is unavailable."
         }
         db.conversationDao().upsert(value.copy(
-            searchEnabled = value.searchEnabled && selectedModel?.supportsSearch == true,
             updatedAt = System.currentTimeMillis()
         ))
     }
@@ -101,8 +100,6 @@ class ConversationRepository(
         val providerId = conversation.providerId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a provider and model first.")
         val modelId = conversation.modelId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a model first.")
         val provider = db.providerDao().get(providerId) ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "The selected provider no longer exists.")
-        val model = db.modelDao().get(providerId, modelId)
-        if (conversation.searchEnabled && model?.supportsSearch != true) throw ProviderException(ProviderException.Category.UNSUPPORTED, "This model is not marked as supporting native search.")
         val apiKey = secrets.get(providerId).orEmpty()
         if (apiKey.isBlank()) throw ProviderException(ProviderException.Category.AUTHENTICATION, "Add an API key for ${provider.name}.")
         val messages = db.messageDao().getForConversation(conversationId)
@@ -110,9 +107,6 @@ class ConversationRepository(
         val included = messages.filter { it.createdAt < cutoff }
         val variants = db.variantDao().getForConversation(conversationId).associateBy { it.id }
         val attachments = db.attachmentDao().getForConversation(conversationId).groupBy { it.messageId }
-        if (included.flatMap { attachments[it.id].orEmpty() }.any { it.mimeType.startsWith("image/") } && model?.supportsVision != true) {
-            throw ProviderException(ProviderException.Category.UNSUPPORTED, "This model is not marked as supporting image input.")
-        }
         val inputs = included.mapNotNull { message ->
             val text = if (message.role == "assistant") message.selectedVariantId?.let { variants[it]?.content } ?: return@mapNotNull null else message.content
             ChatInputMessage(message.role, text, attachments[message.id].orEmpty().map { it.toChatAttachment() })

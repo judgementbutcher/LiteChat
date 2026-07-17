@@ -27,6 +27,29 @@ class AdapterRequestTest {
         assertEquals("Hello", messages.last().jsonObject["content"]?.jsonPrimitive?.content)
     }
 
+    @Test fun compatibleMapsWebSearchWhenEnabled() {
+        val body = OpenAiCompatibleAdapter(client).body(base)
+        assertEquals("web_search", body["tools"]?.jsonArray?.first()?.jsonObject?.get("type")?.jsonPrimitive?.content)
+    }
+
+    @Test fun compatibleMapsImageWithoutLocalCapabilityMetadata() {
+        val image = File.createTempFile("litechat-compatible", ".png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        try {
+            val request = base.copy(
+                searchEnabled = false,
+                messages = listOf(ChatInputMessage("user", "look", listOf(ChatAttachment("luna.png", "image/png", image.absolutePath))))
+            )
+            val content = OpenAiCompatibleAdapter(client).body(request)["messages"]!!.jsonArray.last().jsonObject["content"]!!.jsonArray
+            assertEquals("image_url", content[1].jsonObject["type"]?.jsonPrimitive?.content)
+            assertTrue(content[1].jsonObject["image_url"]!!.jsonObject["url"]!!.jsonPrimitive.content.startsWith("data:image/png;base64,"))
+        } finally { image.delete() }
+    }
+
+    @Test fun openRouterUsesItsWebPlugin() {
+        val body = OpenAiCompatibleAdapter(client).body(base.copy(baseUrl = "https://openrouter.ai/api/v1"))
+        assertEquals("web", body["plugins"]?.jsonArray?.first()?.jsonObject?.get("id")?.jsonPrimitive?.content)
+    }
+
     @Test fun anthropicMapsImageAndNativeSearch() {
         val image = File.createTempFile("litechat", ".png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
         try {

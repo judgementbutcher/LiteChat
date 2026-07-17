@@ -57,6 +57,8 @@
     <string name="add_model">添加模型</string>
     <string name="supports_vision">支持图片</string>
     <string name="supports_search">支持原生搜索</string>
+    <string name="capabilities_auto">自动协商图片与联网搜索能力</string>
+    <string name="capabilities_auto_detail">使用图片或联网搜索时，LiteChat 会直接向模型请求相应能力；是否支持由服务商真实响应决定，不再受可能过时的本地标签限制。</string>
     <string name="settings">设置</string>
     <string name="privacy_summary">无账号、广告、统计、远程配置或崩溃采集；请求从设备直接发送到你配置的服务商。</string>
     <string name="open_navigation">打开导航</string>
@@ -69,6 +71,7 @@
     <string name="attach_files">添加附件</string>
     <string name="insert_template">插入提示词模板</string>
     <string name="remove_attachment">移除 %1$s</string>
+    <string name="close_preview">关闭图片预览</string>
     <string name="scroll_to_bottom">回到底部</string>
     <string name="copy_success">已复制</string>
     <string name="edit_regenerate">编辑并重新生成</string>

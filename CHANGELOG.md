@@ -2,6 +2,26 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.4.0 - 2026-07-17
+
+### Added
+
+- Full-size, pinch-to-zoom image previews from sent messages, with real thumbnails in both the composer and conversation.
+- Native web-search request mapping for OpenAI-compatible endpoints and OpenRouter's web plugin.
+- Provider error details when a multimodal or search request is rejected upstream.
+
+### Changed
+
+- Image input and web search are now negotiated with the provider instead of being blocked by stale local model-capability labels.
+- Markdown and LaTeX render continuously while a response is streaming.
+- Attached documents use compact file surfaces in the sent message instead of exposing local paths.
+
+### Fixed
+
+- Replaced token-by-token maximum-distance scrolling with a stable bottom anchor.
+- User scrolling now pauses output following immediately and returning to the bottom resumes it.
+- Switching models no longer silently turns off an active search preference.
+
 ## 0.3.0 - 2026-07-17
 
 ### Added

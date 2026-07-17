@@ -14,14 +14,16 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,12 +32,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.litechat.android.R
 import app.litechat.android.data.model.*
@@ -80,15 +88,13 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
             ?.length
     } ?: 0
     LaunchedEffect(isDragged, atBottom) {
-        if (isDragged) followOutput = atBottom
+        if (isDragged) followOutput = false
+        else if (atBottom) followOutput = true
     }
     LaunchedEffect(uiState.messages.size, latestLength) {
         if (followOutput && uiState.messages.isNotEmpty()) {
             withFrameNanos { }
-            if (uiState.messages.size > listState.layoutInfo.totalItemsCount) {
-                listState.scrollToItem(uiState.messages.lastIndex)
-            }
-            listState.scrollBy(Float.MAX_VALUE)
+            listState.scrollToItem(uiState.messages.size)
         }
     }
 
@@ -188,6 +194,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                             }
                         }
                     }
+                    item(key = "bottom-anchor") { Spacer(Modifier.height(1.dp)) }
                 }
             }
             AnimatedVisibility(
@@ -199,8 +206,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 FilledTonalIconButton(onClick = {
                     followOutput = true
                     scope.launch {
-                        listState.scrollToItem(uiState.messages.lastIndex)
-                        listState.scrollBy(Float.MAX_VALUE)
+                        listState.scrollToItem(uiState.messages.size)
                     }
                 }) { Icon(Lucide.ArrowDown, stringResource(R.string.scroll_to_bottom)) }
             }
@@ -220,7 +226,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         conversation = conversation,
         models = models.filter { model -> providers.any { it.id == model.providerId && it.enabled } },
         dismiss = { modelPickerOpen = false },
-        select = { model -> viewModel.updateConversation(conversation.copy(providerId = model.providerId, modelId = model.modelId, searchEnabled = conversation.searchEnabled && model.supportsSearch)); modelPickerOpen = false }
+        select = { model -> viewModel.updateConversation(conversation.copy(providerId = model.providerId, modelId = model.modelId)); modelPickerOpen = false }
     )
     if (fullEditor) FullScreenEditor(draft, { draft = it }, { fullEditor = false })
     editing?.let { message -> EditRegenerateDialog(message, { editing = null }) { value ->
@@ -251,21 +257,15 @@ private fun MessageItem(
                 modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.86f)
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
-                    SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
-                    attachments.forEach { AttachmentRow(it) }
+                    if (attachments.isNotEmpty()) SentAttachments(attachments)
+                    if (content.isNotEmpty()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
                     UserActions(content, onEdit)
                 }
             }
         } else {
             Column(Modifier.widthIn(max = 800.dp).fillMaxWidth()) {
                 if (content.isNotEmpty()) {
-                    if (selected?.status == MessageStatus.STREAMING) {
-                        SelectionContainer {
-                            Text(content, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    } else {
-                        MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth())
-                    }
+                    MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth())
                 }
                 if (content.isEmpty() && selected?.status == MessageStatus.STREAMING) {
                     Text("•••", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
@@ -346,13 +346,50 @@ private fun SearchActivityRow(summary: String) {
 }
 
 @Composable
-private fun AttachmentRow(attachment: AttachmentEntity) {
-    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (attachment.mimeType.startsWith("image/")) Lucide.Image else Lucide.File, null, Modifier.size(18.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(attachment.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
-        if (attachment.truncated) { Spacer(Modifier.width(4.dp)); Icon(Lucide.TriangleAlert, stringResource(R.string.truncated), Modifier.size(16.dp)) }
+private fun SentAttachments(attachments: List<AttachmentEntity>) {
+    val images = attachments.filter { it.mimeType.startsWith("image/") }
+    val files = attachments.filterNot { it.mimeType.startsWith("image/") }
+    var preview by remember { mutableStateOf<AttachmentEntity?>(null) }
+    if (images.isNotEmpty()) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            images.forEach { image ->
+                AttachmentThumbnail(
+                    path = image.localPath,
+                    contentDescription = image.displayName,
+                    modifier = Modifier
+                        .size(width = if (images.size == 1) 220.dp else 132.dp, height = 132.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { preview = image },
+                    contentScale = ContentScale.Crop,
+                    maxEdge = 512
+                )
+            }
+        }
     }
+    files.forEach { attachment ->
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+        ) {
+            Row(Modifier.padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Lucide.FileText, null, Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    attachment.displayName,
+                    Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                if (attachment.truncated) Icon(Lucide.TriangleAlert, stringResource(R.string.truncated), Modifier.size(16.dp))
+            }
+        }
+    }
+    preview?.let { FullScreenImagePreview(it.localPath, it.displayName) { preview = null } }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -400,7 +437,7 @@ private fun ChatComposer(
                         Spacer(Modifier.width(4.dp)); Icon(Lucide.ChevronDown, null, Modifier.size(16.dp))
                     }
                     Spacer(Modifier.weight(1f))
-                    if (model?.supportsSearch == true) {
+                    if (model != null) {
                         FilterChip(
                             selected = searchEnabled,
                             onClick = { toggleSearch(!searchEnabled) },
@@ -480,17 +517,62 @@ private fun PendingAttachment(item: ChatAttachment, remove: () -> Unit) {
 }
 
 @Composable
-private fun AttachmentThumbnail(path: String) {
-    val bitmap by produceState<android.graphics.Bitmap?>(null, path) {
+private fun AttachmentThumbnail(
+    path: String,
+    contentDescription: String? = null,
+    modifier: Modifier = Modifier.size(40.dp),
+    contentScale: ContentScale = ContentScale.Crop,
+    maxEdge: Int = 128
+) {
+    val bitmap by produceState<android.graphics.Bitmap?>(null, path, maxEdge) {
         value = withContext(Dispatchers.IO) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(path, bounds)
             var sample = 1
-            while (bounds.outWidth / sample > 128 || bounds.outHeight / sample > 128) sample *= 2
+            while (bounds.outWidth / sample > maxEdge * 2 || bounds.outHeight / sample > maxEdge * 2) sample *= 2
             BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
         }
     }
-    if (bitmap != null) Image(bitmap!!.asImageBitmap(), null, Modifier.size(40.dp)) else Icon(Lucide.Image, null)
+    if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription, modifier, contentScale = contentScale)
+    else Box(modifier, contentAlignment = Alignment.Center) { Icon(Lucide.Image, contentDescription) }
+}
+
+@Composable
+private fun FullScreenImagePreview(path: String, name: String, dismiss: () -> Unit) {
+    var scale by remember(path) { mutableFloatStateOf(1f) }
+    var offset by remember(path) { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        scale = (scale * zoomChange).coerceIn(1f, 5f)
+        offset = if (scale == 1f) Offset.Zero else offset + panChange
+    }
+    Dialog(
+        onDismissRequest = dismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            Box(
+                Modifier.fillMaxSize().transformable(transformState),
+                contentAlignment = Alignment.Center
+            ) {
+                AttachmentThumbnail(
+                    path = path,
+                    contentDescription = name,
+                    modifier = Modifier.fillMaxSize().graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    },
+                    contentScale = ContentScale.Fit,
+                    maxEdge = 2048
+                )
+            }
+            FilledTonalIconButton(
+                onClick = dismiss,
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp)
+            ) { Icon(Lucide.X, stringResource(R.string.close_preview)) }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

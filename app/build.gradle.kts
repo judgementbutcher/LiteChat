@@ -14,8 +14,8 @@ android {
         applicationId = "app.litechat.android"
         minSdk = 31
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "GITHUB_OWNER", "\"judgementbutcher\"")
@@ -40,6 +40,8 @@ android {
         "META-INF/NOTICE",
         "META-INF/NOTICE.txt"
     )
+
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
 }
 
 dependencies {
@@ -66,7 +68,10 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.pdfbox.android)
     implementation(libs.lucide.icons)
-    implementation(libs.markdown.renderer.m3)
+    implementation(libs.markwon.core)
+    implementation(libs.markwon.inline.parser)
+    implementation(libs.markwon.latex)
+    implementation(libs.markwon.tables)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)

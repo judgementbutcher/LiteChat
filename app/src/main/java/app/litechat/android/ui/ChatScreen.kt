@@ -11,10 +11,13 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -26,12 +29,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,10 +41,9 @@ import app.litechat.android.R
 import app.litechat.android.data.model.*
 import app.litechat.android.network.ChatAttachment
 import com.composables.icons.lucide.*
-import com.mikepenz.markdown.m3.Markdown
+import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,30 +64,63 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     var editing by remember { mutableStateOf<MessageEntity?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val markdownRenderer = rememberMarkdownRenderer()
     var followOutput by remember(conversationId) { mutableStateOf(true) }
     val atBottom by remember {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            layout.totalItemsCount == 0 || layout.visibleItemsInfo.lastOrNull()?.index.orEmptyIndex() >= layout.totalItemsCount - 2
-        }
+        derivedStateOf { !listState.canScrollForward }
     }
+    val isDragged by listState.interactionSource.collectIsDraggedAsState()
     val attachmentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.addAttachments(uris)
     }
-    val latestLength = uiState.variantsByMessage.values.sumOf { variants -> variants.sumOf { it.content.length } }
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.isScrollInProgress to atBottom }.collect { (scrolling, bottom) ->
-            if (scrolling) followOutput = bottom
-        }
+    val latestLength = uiState.messages.lastOrNull { it.role == "assistant" }?.let { message ->
+        uiState.variantsByMessage[message.id]
+            ?.firstOrNull { it.id == message.selectedVariantId }
+            ?.content
+            ?.length
+    } ?: 0
+    LaunchedEffect(isDragged, atBottom) {
+        if (isDragged) followOutput = atBottom
     }
     LaunchedEffect(uiState.messages.size, latestLength) {
-        if (followOutput && uiState.messages.isNotEmpty()) listState.scrollToItem(uiState.messages.lastIndex, Int.MAX_VALUE)
+        if (followOutput && uiState.messages.isNotEmpty()) {
+            withFrameNanos { }
+            if (uiState.messages.size > listState.layoutInfo.totalItemsCount) {
+                listState.scrollToItem(uiState.messages.lastIndex)
+            }
+            listState.scrollBy(Float.MAX_VALUE)
+        }
     }
 
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(
+            WindowInsets.ime.union(WindowInsets.navigationBars).only(WindowInsetsSides.Bottom)
+        ),
+        contentWindowInsets = WindowInsets.safeDrawing.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        ),
         topBar = {
-            TopAppBar(
-                title = { Text(conversation?.title?.ifBlank { stringResource(R.string.new_chat) } ?: "LiteChat", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            conversation?.title?.ifBlank { stringResource(R.string.new_chat) } ?: "LiteChat",
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val activeModel = models.firstOrNull {
+                            it.providerId == conversation?.providerId && it.modelId == conversation.modelId
+                        }
+                        if (activeModel != null) Text(
+                            activeModel.displayName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
                 navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) },
                 actions = { AccessibleIconButton(Lucide.Ellipsis, stringResource(R.string.more_options), { settingsOpen = true }) }
             )
@@ -119,12 +152,17 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (uiState.messages.isEmpty()) {
                 Column(
-                    Modifier.fillMaxSize().padding(28.dp),
+                    Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 48.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(10.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = CircleShape
+                    ) { Icon(Lucide.MessageCircle, null, Modifier.padding(18.dp).size(28.dp)) }
+                    Spacer(Modifier.height(18.dp))
+                    Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(6.dp))
                     if (conversation?.providerId == null) TextButton(openProviders) { Text(stringResource(R.string.no_key_hint)) }
                 }
             } else {
@@ -132,15 +170,16 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp)
+                    verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
                     uiState.messages.forEachIndexed { index, message ->
                         item(key = message.id) {
-                            Box(Modifier.fillMaxWidth().animateItem()) {
+                            Box(Modifier.fillMaxWidth()) {
                                 MessageItem(
                                     message = message,
                                     variants = uiState.variantsByMessage[message.id].orEmpty(),
                                     attachments = uiState.attachmentsByMessage[message.id].orEmpty(),
+                                    markdownRenderer = markdownRenderer,
                                     latestAssistant = message.role == "assistant" && index == uiState.messages.indexOfLast { it.role == "assistant" },
                                     onEdit = { editing = message },
                                     onRetry = { viewModel.retry(message.id) },
@@ -152,14 +191,17 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 }
             }
             AnimatedVisibility(
-                visible = !atBottom && uiState.messages.isNotEmpty(),
+                visible = !followOutput && !atBottom && uiState.messages.isNotEmpty(),
                 enter = fadeIn(tween(160)) + scaleIn(tween(160)),
                 exit = fadeOut(tween(160)) + scaleOut(tween(160)),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
             ) {
                 FilledTonalIconButton(onClick = {
                     followOutput = true
-                    scope.launch { listState.animateScrollToItem(uiState.messages.lastIndex, Int.MAX_VALUE) }
+                    scope.launch {
+                        listState.scrollToItem(uiState.messages.lastIndex)
+                        listState.scrollBy(Float.MAX_VALUE)
+                    }
                 }) { Icon(Lucide.ArrowDown, stringResource(R.string.scroll_to_bottom)) }
             }
         }
@@ -187,13 +229,12 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     } }
 }
 
-private fun Int?.orEmptyIndex() = this ?: -1
-
 @Composable
 private fun MessageItem(
     message: MessageEntity,
     variants: List<ResponseVariantEntity>,
     attachments: List<AttachmentEntity>,
+    markdownRenderer: Markwon,
     latestAssistant: Boolean,
     onEdit: () -> Unit,
     onRetry: () -> Unit,
@@ -206,8 +247,8 @@ private fun MessageItem(
         if (isUser) {
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.84f)
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.86f)
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
                     SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
@@ -217,7 +258,15 @@ private fun MessageItem(
             }
         } else {
             Column(Modifier.widthIn(max = 800.dp).fillMaxWidth()) {
-                if (content.isNotEmpty()) MarkdownContent(content)
+                if (content.isNotEmpty()) {
+                    if (selected?.status == MessageStatus.STREAMING) {
+                        SelectionContainer {
+                            Text(content, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    } else {
+                        MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth())
+                    }
+                }
                 if (content.isEmpty() && selected?.status == MessageStatus.STREAMING) {
                     Text("•••", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                 }
@@ -230,7 +279,9 @@ private fun MessageItem(
                         TextButton(onRetry) { Icon(Lucide.RotateCcw, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.retry)) }
                     }
                 }
-                AssistantActions(content, selected, variants, latestAssistant, onRetry, onSelectVariant)
+                if (selected?.status != MessageStatus.STREAMING) {
+                    AssistantActions(content, selected, variants, latestAssistant, onRetry, onSelectVariant)
+                }
             }
         }
     }
@@ -304,57 +355,6 @@ private fun AttachmentRow(attachment: AttachmentEntity) {
     }
 }
 
-@Composable
-private fun MarkdownContent(content: String) {
-    SelectionContainer {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            content.split("```").forEachIndexed { index, block ->
-                if (block.isBlank()) return@forEachIndexed
-                if (index % 2 == 1) CodeBlock(block) else block.split("$$").forEachIndexed { mathIndex, part ->
-                    if (part.isBlank()) return@forEachIndexed
-                    if (mathIndex % 2 == 1) LatexBlock(part) else Markdown(content = stripRemoteImages(part))
-                }
-            }
-        }
-    }
-}
-
-private fun stripRemoteImages(value: String): String = value.replace(Regex("!\\[([^]]*)]\\(https?://[^)]+\\)"), "[$1]")
-
-@Composable
-private fun CodeBlock(raw: String) {
-    val language = raw.lineSequence().firstOrNull().orEmpty().trim()
-    val code = if ('\n' in raw) raw.substringAfter('\n').trimEnd() else raw
-    val copy = rememberCopyAction(code)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.small) {
-        Column {
-            Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(language.ifBlank { stringResource(R.string.code) }, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-                AccessibleIconButton(Lucide.Copy, stringResource(R.string.copy), copy)
-            }
-            Text(
-                code,
-                fontFamily = FontFamily.Monospace,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun LatexBlock(value: String) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small) {
-        Text(renderLatex(value), fontFamily = FontFamily.Serif, modifier = Modifier.horizontalScroll(rememberScrollState()).padding(10.dp))
-    }
-}
-
-private fun renderLatex(value: String): String {
-    var text = value.trim()
-    mapOf("\\alpha" to "α", "\\beta" to "β", "\\gamma" to "γ", "\\delta" to "δ", "\\theta" to "θ", "\\lambda" to "λ", "\\pi" to "π", "\\sum" to "∑", "\\int" to "∫", "\\sqrt" to "√").forEach { (latex, symbol) -> text = text.replace(latex, symbol) }
-    return Regex("\\\\frac\\{([^{}]+)}\\{([^{}]+)}").replace(text) { "${it.groupValues[1]}⁄${it.groupValues[2]}" }.replace("{", "").replace("}", "")
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChatComposer(
@@ -373,29 +373,51 @@ private fun ChatComposer(
     stop: () -> Unit,
     send: () -> Unit
 ) {
-    Box(Modifier.fillMaxWidth().imePadding().navigationBarsPadding(), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
         Surface(
-            tonalElevation = 3.dp,
-            shadowElevation = 3.dp,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp).widthIn(max = 840.dp).fillMaxWidth()
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 0.dp,
+            shadowElevation = 2.dp,
+            shape = MaterialTheme.shapes.extraLarge,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp).widthIn(max = 840.dp).fillMaxWidth()
         ) {
-            Column(Modifier.padding(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(chooseModel) {
+            Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = chooseModel,
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Lucide.Bot, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text(model?.displayName ?: stringResource(R.string.choose_model), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Spacer(Modifier.width(4.dp)); Icon(Lucide.ChevronDown, null, Modifier.size(16.dp))
                     }
                     Spacer(Modifier.weight(1f))
                     if (model?.supportsSearch == true) {
-                        Icon(Lucide.Search, null, Modifier.size(18.dp))
-                        Switch(searchEnabled, toggleSearch, modifier = Modifier.padding(start = 6.dp))
+                        FilterChip(
+                            selected = searchEnabled,
+                            onClick = { toggleSearch(!searchEnabled) },
+                            label = { Text(stringResource(R.string.search), maxLines = 1) },
+                            leadingIcon = { Icon(Lucide.Search, null, Modifier.size(16.dp)) }
+                        )
                     }
                 }
-                if (pending.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pending.forEachIndexed { index, item -> PendingAttachment(item) { removeAttachment(index) } }
+                if (pending.isNotEmpty()) Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    pending.forEachIndexed { index, item ->
+                        PendingAttachment(item) { removeAttachment(index) }
+                    }
                 }
-                Row(verticalAlignment = Alignment.Bottom) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     var menu by remember { mutableStateOf(false) }
                     Box {
                         AccessibleIconButton(Lucide.Plus, stringResource(R.string.attach_files), { menu = true })
@@ -408,21 +430,33 @@ private fun ChatComposer(
                             ) }
                         }
                     }
-                    OutlinedTextField(
+                    TextField(
                         value = draft,
                         onValueChange = onDraft,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                         placeholder = { Text(stringResource(R.string.message_hint)) },
                         minLines = 1,
-                        maxLines = 6,
-                        trailingIcon = { if (draft.text.lines().size > 3) AccessibleIconButton(Lucide.Expand, stringResource(R.string.expand_editor), expand) }
+                        maxLines = 5,
+                        trailingIcon = {
+                            if (draft.text.lines().size > 3) {
+                                AccessibleIconButton(Lucide.Expand, stringResource(R.string.expand_editor), expand)
+                            }
+                        },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
+                        )
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(4.dp))
                     FilledIconButton(
                         onClick = if (generating) stop else send,
                         enabled = generating || draft.text.isNotBlank() || pending.isNotEmpty(),
                         shape = CircleShape,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(44.dp)
                     ) { Icon(if (generating) Lucide.Square else Lucide.ArrowUp, stringResource(if (generating) R.string.stop else R.string.send)) }
                 }
             }

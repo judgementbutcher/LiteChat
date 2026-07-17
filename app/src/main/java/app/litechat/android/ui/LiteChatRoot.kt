@@ -126,9 +126,13 @@ private fun ConversationSidebar(viewModel: AppViewModel, nav: NavHostController,
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 8.dp)) {
         Row(
-            Modifier.fillMaxWidth().height(64.dp).padding(start = 8.dp),
+            Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.medium) {
+                Icon(Lucide.MessageCircle, null, Modifier.padding(9.dp).size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Spacer(Modifier.width(10.dp))
             Text("LiteChat", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             AccessibleIconButton(Lucide.Search, stringResource(R.string.search), { searchVisible = !searchVisible })
             AccessibleIconButton(Lucide.Plus, stringResource(R.string.new_chat), {
@@ -231,7 +235,7 @@ private fun ConversationRow(
                 }
             }
         },
-        shape = MaterialTheme.shapes.small,
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth()
     )
 }
@@ -246,14 +250,21 @@ private fun conversationTimeLabel(timestamp: Long): String = when (relativeConve
 
 @Composable
 private fun SidebarLink(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    NavigationDrawerItem(selected = false, onClick = onClick, icon = { Icon(icon, null) }, label = { Text(label) }, shape = MaterialTheme.shapes.small)
+    NavigationDrawerItem(
+        selected = false,
+        onClick = onClick,
+        icon = { Icon(icon, null, Modifier.size(20.dp)) },
+        label = { Text(label) },
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.padding(vertical = 1.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EmptyHomeScreen(openDrawer: (() -> Unit)?, create: () -> Unit) {
     Scaffold(topBar = {
-        TopAppBar(
+        CenterAlignedTopAppBar(
             title = { Text("LiteChat") },
             navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) }
         )
@@ -263,9 +274,29 @@ private fun EmptyHomeScreen(openDrawer: (() -> Unit)?, create: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(20.dp))
-            Button(create) { Icon(Lucide.Plus, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.new_chat)) }
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge) {
+                Icon(
+                    Lucide.MessageCircle,
+                    null,
+                    Modifier.padding(24.dp).size(36.dp),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.privacy_summary),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.widthIn(max = 480.dp)
+            )
+            Spacer(Modifier.height(24.dp))
+            Button(create, contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
+                Icon(Lucide.Plus, null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.new_chat))
+            }
         }
     }
 }
@@ -280,7 +311,7 @@ internal fun ScreenScaffold(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) }
             )

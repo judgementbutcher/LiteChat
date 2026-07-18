@@ -95,10 +95,22 @@ class ConversationRepository(
 
     suspend fun retry(conversationId: String, assistantMessageId: String) = generate(conversationId, assistantMessageId)
 
-    private suspend fun generate(conversationId: String, assistantMessageId: String) {
+    /**
+     * Regenerate an assistant message with a specific provider/model, recording a new response
+     * version without changing the conversation's default model. Prior versions are preserved.
+     */
+    suspend fun retryWith(conversationId: String, assistantMessageId: String, providerId: String, modelId: String) =
+        generate(conversationId, assistantMessageId, providerId, modelId)
+
+    private suspend fun generate(
+        conversationId: String,
+        assistantMessageId: String,
+        overrideProviderId: String? = null,
+        overrideModelId: String? = null
+    ) {
         val conversation = requireNotNull(db.conversationDao().get(conversationId))
-        val providerId = conversation.providerId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a provider and model first.")
-        val modelId = conversation.modelId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a model first.")
+        val providerId = overrideProviderId ?: conversation.providerId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a provider and model first.")
+        val modelId = overrideModelId ?: conversation.modelId ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "Choose a model first.")
         val provider = db.providerDao().get(providerId) ?: throw ProviderException(ProviderException.Category.UNSUPPORTED, "The selected provider no longer exists.")
         val apiKey = secrets.get(providerId).orEmpty()
         if (apiKey.isBlank()) throw ProviderException(ProviderException.Category.AUTHENTICATION, "Add an API key for ${provider.name}.")

@@ -1,5 +1,7 @@
 package app.litechat.android.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -11,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.litechat.android.data.settings.ThemeMode
+import app.litechat.android.ui.rememberReduceMotion
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF245F75),
@@ -67,8 +70,56 @@ fun LiteChatTheme(themeMode: ThemeMode, dynamicColor: Boolean, content: @Composa
         ThemeMode.LIGHT -> false
     }
     val context = LocalContext.current
-    val colors = if (dynamicColor) {
+    val target = if (dynamicColor) {
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else if (dark) DarkColors else LightColors
+    val colors = target.animated(if (rememberReduceMotion()) 0 else 300)
     MaterialTheme(colorScheme = colors, typography = LiteChatTypography, shapes = LiteChatShapes, content = content)
+}
+
+/**
+ * Cross-fades every visible color role toward [this] scheme so switching between light, dark and
+ * dynamic palettes glides instead of snapping. A duration of 0 (reduced motion) makes it a no-op
+ * snap while keeping the composable call structure constant.
+ */
+@Composable
+private fun ColorScheme.animated(durationMillis: Int): ColorScheme {
+    val spec = tween<Color>(durationMillis)
+    @Composable fun anim(target: Color) = animateColorAsState(target, spec, label = "themeColor").value
+    return copy(
+        primary = anim(primary),
+        onPrimary = anim(onPrimary),
+        primaryContainer = anim(primaryContainer),
+        onPrimaryContainer = anim(onPrimaryContainer),
+        secondary = anim(secondary),
+        onSecondary = anim(onSecondary),
+        secondaryContainer = anim(secondaryContainer),
+        onSecondaryContainer = anim(onSecondaryContainer),
+        tertiary = anim(tertiary),
+        onTertiary = anim(onTertiary),
+        tertiaryContainer = anim(tertiaryContainer),
+        onTertiaryContainer = anim(onTertiaryContainer),
+        background = anim(background),
+        onBackground = anim(onBackground),
+        surface = anim(surface),
+        onSurface = anim(onSurface),
+        surfaceVariant = anim(surfaceVariant),
+        onSurfaceVariant = anim(onSurfaceVariant),
+        surfaceTint = anim(surfaceTint),
+        inverseSurface = anim(inverseSurface),
+        inverseOnSurface = anim(inverseOnSurface),
+        error = anim(error),
+        onError = anim(onError),
+        errorContainer = anim(errorContainer),
+        onErrorContainer = anim(onErrorContainer),
+        outline = anim(outline),
+        outlineVariant = anim(outlineVariant),
+        surfaceBright = anim(surfaceBright),
+        surfaceDim = anim(surfaceDim),
+        surfaceContainerLowest = anim(surfaceContainerLowest),
+        surfaceContainerLow = anim(surfaceContainerLow),
+        surfaceContainer = anim(surfaceContainer),
+        surfaceContainerHigh = anim(surfaceContainerHigh),
+        surfaceContainerHighest = anim(surfaceContainerHighest)
+    )
 }

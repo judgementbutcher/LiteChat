@@ -14,14 +14,20 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class AppViewModel(private val container: AppContainer) : ViewModel() {
     val conversations = container.repository.conversations.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val providers = container.repository.providers.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val models = container.repository.models.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val templates = container.repository.templates.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    fun searchConversations(query: String) = container.repository.searchConversations(query)
-    fun archivedConversations(query: String) = container.repository.archivedConversations(query)
+    fun searchConversations(query: Flow<String>) = query
+        .debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+        .distinctUntilChanged()
+        .flatMapLatest { container.repository.searchConversations(it) }
+    fun archivedConversations(query: Flow<String>) = query
+        .debounce { if (it.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+        .distinctUntilChanged()
+        .flatMapLatest { container.repository.archivedConversations(it) }
     val settings = container.settings.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), app.litechat.android.data.settings.UserSettings())
 
     private val selectedId = MutableStateFlow<String?>(null)
@@ -78,6 +84,17 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         generationJob = viewModelScope.launch {
             isGenerating.value = true
             try { container.repository.retry(id, messageId) }
+            catch (e: Exception) { if (e !is kotlinx.coroutines.CancellationException) showError(e) }
+            finally { isGenerating.value = false }
+        }
+    }
+
+    fun retryWith(messageId: String, model: ModelConfigEntity) {
+        val id = selectedId.value ?: return
+        if (isGenerating.value) return
+        generationJob = viewModelScope.launch {
+            isGenerating.value = true
+            try { container.repository.retryWith(id, messageId, model.providerId, model.modelId) }
             catch (e: Exception) { if (e !is kotlinx.coroutines.CancellationException) showError(e) }
             finally { isGenerating.value = false }
         }
@@ -184,5 +201,10 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T = AppViewModel(container) as T
+    }
+
+    companion object {
+        /** Quiet period before a typed conversation search hits the database; empty query is immediate. */
+        private const val SEARCH_DEBOUNCE_MS = 220L
     }
 }

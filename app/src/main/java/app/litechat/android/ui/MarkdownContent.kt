@@ -1,5 +1,6 @@
 package app.litechat.android.ui
 
+import android.os.SystemClock
 import android.text.method.LinkMovementMethod
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatTextView
@@ -44,10 +45,10 @@ internal fun rememberMarkdownRenderer(): Markwon {
 }
 
 @Composable
-internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modifier = Modifier) {
-    val normalized = remember(content) { normalizeMarkdownMath(content) }
+internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modifier = Modifier, streaming: Boolean = false) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val linkColor = MaterialTheme.colorScheme.primary.toArgb()
+    val lastRender = remember { longArrayOf(0L) }
     AndroidView(
         factory = { context ->
             AppCompatTextView(context).apply {
@@ -61,14 +62,23 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
         update = { view ->
             view.setTextColor(textColor)
             view.setLinkTextColor(linkColor)
-            if (view.tag != normalized) {
-                view.tag = normalized
-                renderer.setMarkdown(view, normalized)
+            // Normalizing math and parsing Markdown (then typesetting LaTeX) is the streaming hot
+            // path. While tokens are still arriving, cap how often the rich layout is rebuilt; the
+            // terminal, non-streaming pass always renders so the finished message is never stale.
+            // Raw content is the change key, so normalization runs only on the ticks we render.
+            val now = SystemClock.elapsedRealtime()
+            val due = !streaming || now - lastRender[0] >= STREAM_RENDER_MIN_INTERVAL_MS
+            if (view.tag != content && due) {
+                view.tag = content
+                lastRender[0] = now
+                renderer.setMarkdown(view, normalizeMarkdownMath(content))
             }
         },
         modifier = modifier
     )
 }
+
+private const val STREAM_RENDER_MIN_INTERVAL_MS = 200L
 
 internal fun normalizeMarkdownMath(value: String): String = value
     .split("```")

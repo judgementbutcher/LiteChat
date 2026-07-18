@@ -2,6 +2,21 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.5.0 - 2026-07-18
+
+### Added
+
+- Regenerate any answer with a different model from the message menu. Each attempt is kept as its own response version, and the model that produced the shown version is labelled once a message has more than one.
+- An animated typing indicator while a reply streams in, a send control that morphs between send and stop, and gentle enter/exit motion for the model and search chips, attachment row and empty state.
+- A short haptic confirmation when a message is sent.
+
+### Changed
+
+- Light, dark and dynamic color changes now cross-fade instead of snapping.
+- Streaming replies are re-typeset at a steady cadence instead of on every persisted delta, removing redundant Markdown and LaTeX work on long or math-heavy answers without changing the finished layout.
+- Conversation search is debounced, so typing no longer runs a database query on every keystroke.
+- Decorative motion (the typing indicator and color cross-fade) follows the system "remove animations" accessibility setting.
+
 ## 0.4.0 - 2026-07-17
 
 ### Added

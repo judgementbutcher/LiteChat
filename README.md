@@ -5,14 +5,14 @@ LiteChat is a lightweight, native Android AI chat client. It talks directly from
 - Kotlin, Jetpack Compose, Material 3, Room and DataStore
 - Android 12+ (`minSdk 31`), `compileSdk` / `targetSdk 35`
 - OpenAI Responses, Anthropic Messages, Gemini `generateContent`, and OpenAI-compatible Chat Completions
-- Local conversation search, pinning, archive/restore, response versions, prompt templates, attachments and exports
+- Local conversation search, pinning, archive/restore, response versions (including regenerating an answer with a different model), prompt templates, attachments and exports
 - Stable follow-output behavior, IME-aware composer, and live native Markdown/LaTeX rendering
 - English and Simplified Chinese; light, dark and Android dynamic color
 - MIT licensed
 
 ## Install the debug APK
 
-The generated artifact is `artifacts/LiteChat-0.4.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
+The generated artifact is `artifacts/LiteChat-0.5.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
 
 To build it yourself:
 

@@ -22,6 +22,7 @@
     <string name="copy">Copy</string>
     <string name="edit">Edit</string>
     <string name="retry">Retry</string>
+    <string name="retry_with">Retry with another model</string>
     <string name="rename">Rename</string>
     <string name="delete">Delete</string>
     <string name="delete_forever">Delete forever</string>

@@ -116,7 +116,7 @@ private fun AppNavHost(viewModel: AppViewModel, nav: NavHostController, openDraw
 private fun ConversationSidebar(viewModel: AppViewModel, nav: NavHostController, afterNavigate: () -> Unit = {}) {
     var query by rememberSaveable { mutableStateOf("") }
     var searchVisible by rememberSaveable { mutableStateOf(false) }
-    val conversations by remember(query) { viewModel.searchConversations(query) }
+    val conversations by remember { viewModel.searchConversations(snapshotFlow { query }) }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     val sections = remember(conversations) { groupConversations(conversations) }
     val backStack by nav.currentBackStackEntryAsState()
@@ -347,7 +347,7 @@ private fun DeleteConversationDialog(conversation: ConversationEntity, dismiss: 
 @Composable
 private fun ArchivedScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
     var query by rememberSaveable { mutableStateOf("") }
-    val conversations by remember(query) { viewModel.archivedConversations(query) }
+    val conversations by remember { viewModel.archivedConversations(snapshotFlow { query }) }
         .collectAsStateWithLifecycle(initialValue = emptyList())
     var deleting by remember { mutableStateOf<ConversationEntity?>(null) }
     ScreenScaffold(stringResource(R.string.archived), openDrawer) { padding ->

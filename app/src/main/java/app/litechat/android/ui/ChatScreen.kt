@@ -4,11 +4,23 @@ import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
@@ -35,9 +47,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -68,12 +82,17 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     val conversation = uiState.conversation
     var settingsOpen by remember { mutableStateOf(false) }
     var modelPickerOpen by remember { mutableStateOf(false) }
+    var retryPickerFor by remember { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(conversationId, stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue()) }
     var fullEditor by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<MessageEntity?>(null) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val markdownRenderer = rememberMarkdownRenderer()
+    val modelName: (String, String) -> String = remember(models) {
+        { providerId, modelId -> models.firstOrNull { it.providerId == providerId && it.modelId == modelId }?.displayName ?: modelId }
+    }
     var followOutput by remember(conversationId) { mutableStateOf(true) }
     val atBottom by remember {
         derivedStateOf { !listState.canScrollForward }
@@ -158,6 +177,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 stop = viewModel::stop,
                 send = {
                     if (!generating && (draft.text.isNotBlank() || pending.isNotEmpty())) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.send(draft.text)
                         draft = TextFieldValue()
                     }
@@ -167,21 +187,30 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             if (uiState.messages.isEmpty()) {
-                Column(
-                    Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 48.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                val appear = remember { MutableTransitionState(false) }
+                appear.targetState = true
+                AnimatedVisibility(
+                    visibleState = appear,
+                    enter = fadeIn(tween(420)) + scaleIn(initialScale = 0.92f, animationSpec = tween(420)),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = CircleShape
-                    ) { Icon(Lucide.MessageCircle, null, Modifier.padding(18.dp).size(28.dp)) }
-                    Spacer(Modifier.height(18.dp))
-                    Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(6.dp))
-                    if (conversation?.providerId == null) TextButton(openProviders) { Text(stringResource(R.string.no_key_hint)) }
+                    Column(
+                        Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = CircleShape
+                        ) { Icon(Lucide.MessageCircle, null, Modifier.padding(18.dp).size(28.dp)) }
+                        Spacer(Modifier.height(18.dp))
+                        Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(6.dp))
+                        if (conversation?.providerId == null) TextButton(openProviders) { Text(stringResource(R.string.no_key_hint)) }
+                    }
                 }
             } else {
+                val lastAssistantIndex = uiState.messages.indexOfLast { it.role == "assistant" }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
@@ -190,15 +219,23 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 ) {
                     uiState.messages.forEachIndexed { index, message ->
                         item(key = message.id) {
-                            Box(Modifier.fillMaxWidth()) {
+                            Box(
+                                Modifier.fillMaxWidth().animateItem(
+                                    fadeInSpec = tween(220),
+                                    fadeOutSpec = tween(140),
+                                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                                )
+                            ) {
                                 MessageItem(
                                     message = message,
                                     variants = uiState.variantsByMessage[message.id].orEmpty(),
                                     attachments = uiState.attachmentsByMessage[message.id].orEmpty(),
                                     markdownRenderer = markdownRenderer,
-                                    latestAssistant = message.role == "assistant" && index == uiState.messages.indexOfLast { it.role == "assistant" },
+                                    latestAssistant = message.role == "assistant" && index == lastAssistantIndex,
+                                    modelName = modelName,
                                     onEdit = { editing = message },
                                     onRetry = { viewModel.retry(message.id) },
+                                    onRetryWith = { retryPickerFor = message.id },
                                     onSelectVariant = { viewModel.selectVariant(message.id, it) }
                                 )
                             }
@@ -238,6 +275,12 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         dismiss = { modelPickerOpen = false },
         select = { model -> viewModel.updateConversation(conversation.copy(providerId = model.providerId, modelId = model.modelId)); modelPickerOpen = false }
     )
+    if (retryPickerFor != null && conversation != null) ModelPicker(
+        conversation = conversation,
+        models = models.filter { model -> providers.any { it.id == model.providerId && it.enabled } },
+        dismiss = { retryPickerFor = null },
+        select = { model -> retryPickerFor?.let { viewModel.retryWith(it, model) }; retryPickerFor = null }
+    )
     if (fullEditor) FullScreenEditor(draft, { draft = it }, { fullEditor = false })
     editing?.let { message -> EditRegenerateDialog(message, { editing = null }) { value ->
         viewModel.editAndRegenerate(message.id, value)
@@ -252,8 +295,10 @@ private fun MessageItem(
     attachments: List<AttachmentEntity>,
     markdownRenderer: Markwon,
     latestAssistant: Boolean,
+    modelName: (String, String) -> String,
     onEdit: () -> Unit,
     onRetry: () -> Unit,
+    onRetryWith: () -> Unit,
     onSelectVariant: (String) -> Unit
 ) {
     val selected = variants.firstOrNull { it.id == message.selectedVariantId } ?: variants.lastOrNull()
@@ -275,10 +320,10 @@ private fun MessageItem(
         } else {
             Column(Modifier.widthIn(max = 800.dp).fillMaxWidth()) {
                 if (content.isNotEmpty()) {
-                    MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth())
+                    MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth(), streaming = selected?.status == MessageStatus.STREAMING)
                 }
                 if (content.isEmpty() && selected?.status == MessageStatus.STREAMING) {
-                    Text("•••", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    TypingIndicator()
                 }
                 selected?.searchSummary?.let { SearchActivityRow(it) }
                 if (selected?.status == MessageStatus.ERROR || selected?.status == MessageStatus.CANCELLED) {
@@ -289,9 +334,63 @@ private fun MessageItem(
                         TextButton(onRetry) { Icon(Lucide.RotateCcw, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.retry)) }
                     }
                 }
-                if (selected?.status != MessageStatus.STREAMING) {
-                    AssistantActions(content, selected, variants, latestAssistant, onRetry, onSelectVariant)
+                AnimatedVisibility(
+                    visible = selected?.status != MessageStatus.STREAMING,
+                    enter = fadeIn(tween(220)),
+                    exit = fadeOut(tween(120))
+                ) {
+                    Column {
+                        if (variants.size > 1 && selected != null) {
+                            Text(
+                                modelName(selected.providerId, selected.modelId),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        AssistantActions(content, selected, variants, latestAssistant, onRetry, onRetryWith, onSelectVariant)
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TypingIndicator(modifier: Modifier = Modifier) {
+    val reduceMotion = rememberReduceMotion()
+    val color = MaterialTheme.colorScheme.primary
+    Row(
+        modifier.padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (reduceMotion) {
+            repeat(3) { Box(Modifier.size(8.dp).background(color.copy(alpha = 0.6f), CircleShape)) }
+        } else {
+            val transition = rememberInfiniteTransition(label = "typing")
+            repeat(3) { index ->
+                val progress by transition.animateFloat(
+                    initialValue = 0f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(650, delayMillis = index * 160, easing = LinearEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "dot$index"
+                )
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .graphicsLayer {
+                            val scale = 0.7f + progress * 0.5f
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = 0.4f + progress * 0.6f
+                        }
+                        .background(color, CircleShape)
+                )
             }
         }
     }
@@ -317,21 +416,24 @@ private fun AssistantActions(
     variants: List<ResponseVariantEntity>,
     latest: Boolean,
     retry: () -> Unit,
+    retryWith: () -> Unit,
     select: (String) -> Unit
 ) {
     val copy = rememberCopyAction(content)
     var menu by remember { mutableStateOf(false) }
     val index = variants.indexOfFirst { it.id == selected?.id }.coerceAtLeast(0)
+    val busy = selected?.status == MessageStatus.STREAMING
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (latest) {
             AccessibleIconButton(Lucide.Copy, stringResource(R.string.copy), copy, enabled = content.isNotEmpty())
-            AccessibleIconButton(Lucide.RotateCcw, stringResource(R.string.retry), retry, enabled = selected?.status != MessageStatus.STREAMING)
+            AccessibleIconButton(Lucide.RotateCcw, stringResource(R.string.retry), retry, enabled = !busy)
         }
         Box {
             AccessibleIconButton(Lucide.Ellipsis, stringResource(R.string.more_options), { menu = true })
             DropdownMenu(menu, { menu = false }) {
                 DropdownMenuItem({ Text(stringResource(R.string.copy)) }, { copy(); menu = false }, leadingIcon = { Icon(Lucide.Copy, null) })
-                DropdownMenuItem({ Text(stringResource(R.string.retry)) }, { retry(); menu = false }, leadingIcon = { Icon(Lucide.RotateCcw, null) }, enabled = selected?.status != MessageStatus.STREAMING)
+                DropdownMenuItem({ Text(stringResource(R.string.retry)) }, { retry(); menu = false }, leadingIcon = { Icon(Lucide.RotateCcw, null) }, enabled = !busy)
+                DropdownMenuItem({ Text(stringResource(R.string.retry_with)) }, { retryWith(); menu = false }, leadingIcon = { Icon(Lucide.Repeat, null) }, enabled = !busy)
             }
         }
         if (variants.size > 1) {
@@ -447,7 +549,11 @@ private fun ChatComposer(
                         Spacer(Modifier.width(4.dp)); Icon(Lucide.ChevronDown, null, Modifier.size(16.dp))
                     }
                     Spacer(Modifier.weight(1f))
-                    if (model != null) {
+                    AnimatedVisibility(
+                        visible = model != null,
+                        enter = fadeIn(tween(180)) + scaleIn(initialScale = 0.85f, animationSpec = tween(180)),
+                        exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.85f, animationSpec = tween(120))
+                    ) {
                         FilterChip(
                             selected = searchEnabled,
                             onClick = { toggleSearch(!searchEnabled) },
@@ -456,12 +562,18 @@ private fun ChatComposer(
                         )
                     }
                 }
-                if (pending.isNotEmpty()) Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                AnimatedVisibility(
+                    visible = pending.isNotEmpty(),
+                    enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                    exit = shrinkVertically(tween(160)) + fadeOut(tween(160))
                 ) {
-                    pending.forEachIndexed { index, item ->
-                        PendingAttachment(item) { removeAttachment(index) }
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        pending.forEachIndexed { index, item ->
+                            PendingAttachment(item) { removeAttachment(index) }
+                        }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -504,7 +616,18 @@ private fun ChatComposer(
                         enabled = generating || draft.text.isNotBlank() || pending.isNotEmpty(),
                         shape = CircleShape,
                         modifier = Modifier.size(44.dp)
-                    ) { Icon(if (generating) Lucide.Square else Lucide.ArrowUp, stringResource(if (generating) R.string.stop else R.string.send)) }
+                    ) {
+                        AnimatedContent(
+                            targetState = generating,
+                            transitionSpec = {
+                                (fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150))) togetherWith
+                                    (fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)))
+                            },
+                            label = "send-stop"
+                        ) { isGenerating ->
+                            Icon(if (isGenerating) Lucide.Square else Lucide.ArrowUp, stringResource(if (isGenerating) R.string.stop else R.string.send))
+                        }
+                    }
                 }
             }
         }

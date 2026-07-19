@@ -1,8 +1,10 @@
 package app.litechat.android.network
 
 import app.litechat.android.data.model.ProtocolKind
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -90,7 +92,7 @@ class OpenAiResponsesAdapter(client: OkHttpClient) : BaseAdapter(client) {
                 "response.failed" -> throw ProviderException(ProviderException.Category.SERVER, "OpenAI reported a failed response.")
             }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }
 
 class OpenAiCompatibleAdapter(client: OkHttpClient) : BaseAdapter(client) {
@@ -141,7 +143,7 @@ class OpenAiCompatibleAdapter(client: OkHttpClient) : BaseAdapter(client) {
                 ?.get("delta")?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull
                 ?.let { emit(ChatEvent.TextDelta(it)) }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }
 
 class AnthropicAdapter(client: OkHttpClient) : BaseAdapter(client) {
@@ -190,7 +192,7 @@ class AnthropicAdapter(client: OkHttpClient) : BaseAdapter(client) {
                 "error" -> throw ProviderException(ProviderException.Category.SERVER, "Anthropic reported a streaming error.")
             }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 }
 
 class GeminiAdapter(client: OkHttpClient) : BaseAdapter(client) {
@@ -235,7 +237,7 @@ class GeminiAdapter(client: OkHttpClient) : BaseAdapter(client) {
             }
         }
         emit(ChatEvent.Completed)
-    }
+    }.flowOn(Dispatchers.IO)
 }
 
 fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()

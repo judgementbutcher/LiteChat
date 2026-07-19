@@ -16,37 +16,50 @@ import app.litechat.android.data.settings.ThemeMode
 import app.litechat.android.ui.rememberReduceMotion
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF245F75),
+    primary = Color(0xFF006B58),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFC3E8F5),
-    onPrimaryContainer = Color(0xFF073744),
-    secondary = Color(0xFF5B6052),
-    secondaryContainer = Color(0xFFE1E6D3),
-    tertiary = Color(0xFF79536B),
-    surface = Color(0xFFFBF9F7),
-    surfaceVariant = Color(0xFFE3E2DF),
-    outlineVariant = Color(0xFFC9C7C3)
+    primaryContainer = Color(0xFFB4F1DC),
+    onPrimaryContainer = Color(0xFF002019),
+    secondary = Color(0xFF4C5F78),
+    secondaryContainer = Color(0xFFD5E3FF),
+    tertiary = Color(0xFF67558F),
+    background = Color(0xFFF4F7F6),
+    surface = Color(0xFFF8FAF9),
+    surfaceVariant = Color(0xFFDDE5E2),
+    outlineVariant = Color(0xFFC0CAC6)
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FD0E4),
-    onPrimary = Color(0xFF003642),
-    primaryContainer = Color(0xFF154E5E),
-    onPrimaryContainer = Color(0xFFC3E8F5),
-    secondary = Color(0xFFC5CBB7),
-    secondaryContainer = Color(0xFF434839),
-    tertiary = Color(0xFFE9B8D2),
-    surface = Color(0xFF121413),
-    surfaceVariant = Color(0xFF444744),
-    outlineVariant = Color(0xFF444744)
+    primary = Color(0xFF79F2CA),
+    onPrimary = Color(0xFF00382B),
+    primaryContainer = Color(0xFF123D33),
+    onPrimaryContainer = Color(0xFFA2F8DB),
+    secondary = Color(0xFFAFC9F3),
+    onSecondary = Color(0xFF19314E),
+    secondaryContainer = Color(0xFF24364C),
+    onSecondaryContainer = Color(0xFFD5E5FF),
+    tertiary = Color(0xFFC9B6FF),
+    onTertiary = Color(0xFF33245E),
+    tertiaryContainer = Color(0xFF30264B),
+    onTertiaryContainer = Color(0xFFE9DDFF),
+    background = Color(0xFF050607),
+    onBackground = Color(0xFFE8ECEA),
+    surface = Color(0xFF080A0C),
+    onSurface = Color(0xFFE8ECEA),
+    surfaceVariant = Color(0xFF171B20),
+    onSurfaceVariant = Color(0xFFB9C2BE),
+    outline = Color(0xFF7B8581),
+    outlineVariant = Color(0xFF28302D),
+    error = Color(0xFFFFB4AB),
+    errorContainer = Color(0xFF4B1717)
 )
 
 private val LiteChatShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(8.dp),
-    medium = RoundedCornerShape(12.dp),
-    large = RoundedCornerShape(16.dp),
-    extraLarge = RoundedCornerShape(28.dp)
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(30.dp)
 )
 
 private val LiteChatTypography = Typography(
@@ -70,7 +83,9 @@ fun LiteChatTheme(themeMode: ThemeMode, dynamicColor: Boolean, content: @Composa
         ThemeMode.LIGHT -> false
     }
     val context = LocalContext.current
-    val target = if (dynamicColor) {
+    // The dark experience deliberately keeps its deep-black canvas; dynamic color is used as an
+    // optional light-theme palette instead of replacing the product's defining dark surfaces.
+    val target = if (dynamicColor && !dark) {
         if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else if (dark) DarkColors else LightColors
     val colors = target.animated(if (rememberReduceMotion()) 0 else 300)

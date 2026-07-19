@@ -11,8 +11,8 @@ private val Context.dataStore by preferencesDataStore("user_settings")
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 data class UserSettings(
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.DARK,
+    val dynamicColor: Boolean = false,
     val languageTag: String = "system",
     val temperature: Float = 0.7f,
     val topP: Float = 1f
@@ -29,8 +29,8 @@ class UserSettingsStore(private val context: Context) {
 
     val settings: Flow<UserSettings> = context.dataStore.data.map { p ->
         UserSettings(
-            themeMode = runCatching { ThemeMode.valueOf(p[Keys.theme] ?: "SYSTEM") }.getOrDefault(ThemeMode.SYSTEM),
-            dynamicColor = p[Keys.dynamicColor] ?: true,
+            themeMode = runCatching { ThemeMode.valueOf(p[Keys.theme] ?: "DARK") }.getOrDefault(ThemeMode.DARK),
+            dynamicColor = p[Keys.dynamicColor] ?: false,
             languageTag = p[Keys.language] ?: "system",
             temperature = p[Keys.temperature] ?: 0.7f,
             topP = p[Keys.topP] ?: 1f

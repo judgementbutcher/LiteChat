@@ -1,5 +1,6 @@
 package app.litechat.android.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,7 +41,12 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                 Text(stringResource(R.string.no_key_hint), style = MaterialTheme.typography.bodyMedium)
             }
             items(providers, key = { it.id }) { provider ->
-                Column(Modifier.fillMaxWidth()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.64f),
+                    shape = MaterialTheme.shapes.large,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+                    modifier = Modifier.fillMaxWidth().animateItem()
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth()) {
                             Column(Modifier.weight(1f)) {
@@ -68,7 +74,6 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                             }
                         }
                     }
-                    HorizontalDivider()
                 }
             }
         }

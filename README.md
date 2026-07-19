@@ -7,12 +7,12 @@ LiteChat is a lightweight, native Android AI chat client. It talks directly from
 - OpenAI Responses, Anthropic Messages, Gemini `generateContent`, and OpenAI-compatible Chat Completions
 - Local conversation search, pinning, archive/restore, response versions (including regenerating an answer with a different model), prompt templates, attachments and exports
 - Stable follow-output behavior, IME-aware composer, and live native Markdown/LaTeX rendering
-- English and Simplified Chinese; light, dark and Android dynamic color
+- English and Simplified Chinese; a deep-black animated glass theme by default, plus light, system and Android dynamic color options
 - MIT licensed
 
 ## Install the debug APK
 
-The generated artifact is `artifacts/LiteChat-0.5.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
+The generated artifact is `artifacts/LiteChat-0.6.0-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
 
 To build it yourself:
 
@@ -27,7 +27,7 @@ Set `sdk.dir` in the ignored `local.properties` file if `ANDROID_HOME` is not co
 1. Open **Providers** and select a preset or add a custom provider.
 2. Enter the API key issued by that provider, save, then use **Test connection**. A successful test imports the remote model list; models can always be added manually.
 3. Create a conversation. Choose the model from the composer and enable search when needed. Conversation title and system prompt live in the top-bar menu.
-4. Send a message. Use **Stop** to cancel; partial output is retained. **Retry** creates another response version without deleting earlier versions.
+4. Send a message. While the model answers, the composer exposes a labelled **Stop** button that immediately cancels the network stream; partial output is retained. **Retry** creates another response version without deleting earlier versions.
 
 Preset endpoints:
 

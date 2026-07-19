@@ -1,16 +1,23 @@
 package app.litechat.android.network
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.tls.HandshakeCertificates
 import okhttp3.tls.HeldCertificate
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.TimeUnit
 
 class StreamingIntegrationTest {
     private lateinit var server: MockWebServer
@@ -60,6 +67,17 @@ class StreamingIntegrationTest {
         server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody("data: not-json\n\n"))
         val error = runCatching { adapter.stream(request(), "key").toList() }.exceptionOrNull() as ProviderException
         assertEquals(ProviderException.Category.MALFORMED, error.category)
+    }
+
+    @Test fun cancellingCollectorImmediatelyCancelsAStalledNetworkStream() = runBlocking {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val collector = launch {
+            adapter.stream(request(), "key").collect { }
+        }
+
+        assertNotNull(withContext(Dispatchers.IO) { server.takeRequest(2, TimeUnit.SECONDS) })
+        withTimeout(1_000) { collector.cancelAndJoin() }
+        assertTrue(collector.isCancelled)
     }
 
     private fun request() = ChatRequest(

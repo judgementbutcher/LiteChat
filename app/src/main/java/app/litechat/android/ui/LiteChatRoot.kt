@@ -2,10 +2,13 @@ package app.litechat.android.ui
 
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -13,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,34 +56,48 @@ fun LiteChatRoot(viewModel: AppViewModel) {
     }
 
     CompositionLocalProvider(LocalAppSnackbarHostState provides snackbar) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val sidebarWidth = when {
-                maxWidth >= 840.dp -> 300.dp
-                maxWidth >= 600.dp -> 280.dp
-                else -> null
-            }
-            if (sidebarWidth != null) {
-                Row(Modifier.fillMaxSize()) {
-                    Surface(tonalElevation = 1.dp, modifier = Modifier.width(sidebarWidth).fillMaxHeight()) {
-                        ConversationSidebar(viewModel, nav)
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onBackground
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                AmbientBackdrop(Modifier.fillMaxSize())
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val sidebarWidth = when {
+                        maxWidth >= 840.dp -> 300.dp
+                        maxWidth >= 600.dp -> 280.dp
+                        else -> null
                     }
-                    Box(Modifier.weight(1f)) {
-                        AppNavHost(viewModel, nav, null)
-                        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
-                    }
-                }
-            } else {
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        ModalDrawerSheet(Modifier.widthIn(max = 320.dp)) {
-                            ConversationSidebar(viewModel, nav) { scope.launch { drawerState.close() } }
+                    if (sidebarWidth != null) {
+                        Row(Modifier.fillMaxSize()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+                                shadowElevation = 18.dp,
+                                modifier = Modifier.width(sidebarWidth).fillMaxHeight()
+                            ) { ConversationSidebar(viewModel, nav) }
+                            Box(Modifier.weight(1f)) {
+                                AppNavHost(viewModel, nav, null)
+                                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+                            }
                         }
-                    }
-                ) {
-                    Box(Modifier.fillMaxSize()) {
-                        AppNavHost(viewModel, nav) { scope.launch { drawerState.open() } }
-                        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+                    } else {
+                        ModalNavigationDrawer(
+                            drawerState = drawerState,
+                            drawerContent = {
+                                ModalDrawerSheet(
+                                    modifier = Modifier.widthIn(max = 320.dp),
+                                    drawerContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                    drawerTonalElevation = 0.dp
+                                ) { ConversationSidebar(viewModel, nav) { scope.launch { drawerState.close() } } }
+                            }
+                        ) {
+                            Box(Modifier.fillMaxSize()) {
+                                AppNavHost(viewModel, nav) { scope.launch { drawerState.open() } }
+                                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+                            }
+                        }
                     }
                 }
             }
@@ -129,7 +147,11 @@ private fun ConversationSidebar(viewModel: AppViewModel, nav: NavHostController,
             Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.medium) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                shape = MaterialTheme.shapes.medium,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
+            ) {
                 Icon(Lucide.MessageCircle, null, Modifier.padding(9.dp).size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
             Spacer(Modifier.width(10.dp))
@@ -139,7 +161,11 @@ private fun ConversationSidebar(viewModel: AppViewModel, nav: NavHostController,
                 viewModel.createConversation { nav.navigate(Routes.chat(it)); afterNavigate() }
             })
         }
-        if (searchVisible) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = searchVisible,
+            enter = fadeIn(tween(180)) + expandVertically(tween(220)),
+            exit = fadeOut(tween(120)) + shrinkVertically(tween(160))
+        ) {
             OutlinedTextField(
                 query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 placeholder = { Text(stringResource(R.string.search_conversations)) },
@@ -236,6 +262,12 @@ private fun ConversationRow(
             }
         },
         shape = MaterialTheme.shapes.medium,
+        colors = NavigationDrawerItemDefaults.colors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            unselectedContainerColor = Color.Transparent
+        ),
         modifier = Modifier.fillMaxWidth()
     )
 }
@@ -256,6 +288,7 @@ private fun SidebarLink(icon: androidx.compose.ui.graphics.vector.ImageVector, l
         icon = { Icon(icon, null, Modifier.size(20.dp)) },
         label = { Text(label) },
         shape = MaterialTheme.shapes.medium,
+        colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent),
         modifier = Modifier.padding(vertical = 1.dp)
     )
 }
@@ -263,18 +296,27 @@ private fun SidebarLink(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EmptyHomeScreen(openDrawer: (() -> Unit)?, create: () -> Unit) {
-    Scaffold(topBar = {
-        CenterAlignedTopAppBar(
-            title = { Text("LiteChat") },
-            navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) }
-        )
-    }) { padding ->
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("LiteChat") },
+                navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+            )
+        }
+    ) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.extraLarge) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                shape = MaterialTheme.shapes.extraLarge,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                shadowElevation = 18.dp
+            ) {
                 Icon(
                     Lucide.MessageCircle,
                     null,
@@ -310,10 +352,15 @@ internal fun ScreenScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) }
+                navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                )
             )
         },
         floatingActionButton = floatingActionButton,
@@ -359,17 +406,24 @@ private fun ArchivedScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             )
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 12.dp)) {
                 items(conversations, key = { it.id }) { conversation ->
-                    ListItem(
-                        headlineContent = { Text(conversation.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        supportingContent = { Text(conversationTimeLabel(conversation.updatedAt)) },
-                        trailingContent = {
-                            Row {
-                                AccessibleIconButton(Lucide.ArchiveRestore, stringResource(R.string.restore), { viewModel.setArchived(conversation, false) })
-                                AccessibleIconButton(Lucide.Trash2, stringResource(R.string.delete_forever), { deleting = conversation })
-                            }
-                        }
-                    )
-                    HorizontalDivider()
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
+                        shape = MaterialTheme.shapes.large,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).animateItem()
+                    ) {
+                        ListItem(
+                            headlineContent = { Text(conversation.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(conversationTimeLabel(conversation.updatedAt)) },
+                            trailingContent = {
+                                Row {
+                                    AccessibleIconButton(Lucide.ArchiveRestore, stringResource(R.string.restore), { viewModel.setArchived(conversation, false) })
+                                    AccessibleIconButton(Lucide.Trash2, stringResource(R.string.delete_forever), { deleting = conversation })
+                                }
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
                 }
             }
         }

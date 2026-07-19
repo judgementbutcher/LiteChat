@@ -12,20 +12,33 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.litechat.android.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DataScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var pendingJson by remember { mutableStateOf<String?>(null) }
     var pendingMarkdown by remember { mutableStateOf<String?>(null) }
     val exportJson = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        uri?.let { writeDocument(context, it, pendingJson.orEmpty()) }; pendingJson = null
+        val value = pendingJson.orEmpty(); pendingJson = null
+        uri?.let { scope.launch { withContext(Dispatchers.IO) { writeDocument(context, it, value) } } }
     }
     val exportMarkdown = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri ->
-        uri?.let { writeDocument(context, it, pendingMarkdown.orEmpty()) }; pendingMarkdown = null
+        val value = pendingMarkdown.orEmpty(); pendingMarkdown = null
+        uri?.let { scope.launch { withContext(Dispatchers.IO) { writeDocument(context, it, value) } } }
     }
     val importJson = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { selected -> context.contentResolver.openInputStream(selected)?.bufferedReader()?.use { viewModel.importBackup(it.readText()) } }
+        uri?.let { selected ->
+            scope.launch {
+                val raw = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(selected)?.bufferedReader()?.use { it.readText() }
+                }
+                if (raw != null) viewModel.importBackup(raw)
+            }
+        }
     }
     ScreenScaffold(stringResource(R.string.data_management), openDrawer) { padding ->
         Column(

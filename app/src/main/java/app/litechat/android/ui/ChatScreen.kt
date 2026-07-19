@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -128,6 +129,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         modifier = Modifier.windowInsetsPadding(
             WindowInsets.ime.union(WindowInsets.navigationBars).only(WindowInsetsSides.Bottom)
         ),
@@ -157,7 +159,11 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                     }
                 },
                 navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) },
-                actions = { AccessibleIconButton(Lucide.Ellipsis, stringResource(R.string.more_options), { settingsOpen = true }) }
+                actions = { AccessibleIconButton(Lucide.Ellipsis, stringResource(R.string.more_options), { settingsOpen = true }) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                )
             )
         },
         bottomBar = {
@@ -307,8 +313,9 @@ private fun MessageItem(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Center) {
         if (isUser) {
             Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                 shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                 modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.86f)
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
@@ -522,16 +529,22 @@ private fun ChatComposer(
     stop: () -> Unit,
     send: () -> Unit
 ) {
+    val borderColor by animateColorAsState(
+        if (generating) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f),
+        animationSpec = tween(280),
+        label = "composer-border"
+    )
     Box(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface),
+        Modifier.fillMaxWidth().background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
             tonalElevation = 0.dp,
-            shadowElevation = 2.dp,
+            shadowElevation = if (generating) 14.dp else 8.dp,
             shape = MaterialTheme.shapes.extraLarge,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            border = BorderStroke(1.dp, borderColor),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp).widthIn(max = 840.dp).fillMaxWidth()
         ) {
             Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
@@ -611,21 +624,38 @@ private fun ChatComposer(
                         )
                     )
                     Spacer(Modifier.width(4.dp))
-                    FilledIconButton(
-                        onClick = if (generating) stop else send,
-                        enabled = generating || draft.text.isNotBlank() || pending.isNotEmpty(),
-                        shape = CircleShape,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        AnimatedContent(
-                            targetState = generating,
-                            transitionSpec = {
-                                (fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150))) togetherWith
-                                    (fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)))
-                            },
-                            label = "send-stop"
-                        ) { isGenerating ->
-                            Icon(if (isGenerating) Lucide.Square else Lucide.ArrowUp, stringResource(if (isGenerating) R.string.stop else R.string.send))
+                    AnimatedContent(
+                        targetState = generating,
+                        transitionSpec = {
+                            (fadeIn(tween(180)) + scaleIn(initialScale = 0.75f, animationSpec = tween(180))) togetherWith
+                                (fadeOut(tween(120)) + scaleOut(targetScale = 0.75f, animationSpec = tween(120)))
+                        },
+                        label = "send-stop"
+                    ) { isGenerating ->
+                        if (isGenerating) {
+                            Button(
+                                onClick = stop,
+                                modifier = Modifier.height(44.dp),
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Icon(Lucide.Square, null, Modifier.size(15.dp))
+                                Spacer(Modifier.width(7.dp))
+                                Text(stringResource(R.string.stop))
+                            }
+                        } else {
+                            FilledIconButton(
+                                onClick = send,
+                                enabled = draft.text.isNotBlank() || pending.isNotEmpty(),
+                                shape = CircleShape,
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(Lucide.ArrowUp, stringResource(R.string.send))
+                            }
                         }
                     }
                 }

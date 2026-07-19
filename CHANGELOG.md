@@ -2,6 +2,25 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.0 - 2026-07-19
+
+### Added
+
+- A modern deep-black visual system with translucent glass surfaces, mint highlights, softly animated ambient light and a subtle background grid.
+- Clear glass cards across providers, templates, archived conversations, navigation and the chat composer, with richer selection and transition motion.
+- A prominent labelled Stop button while a model is answering.
+- A regression test that verifies a stalled network stream can be cancelled immediately.
+
+### Changed
+
+- New installations now open in the dark theme with dynamic color disabled so the intended black visual hierarchy is preserved; light and system themes remain available.
+- Updated Room, DataStore, Kotlin serialization, coroutines and AppCompat dependencies.
+- Moved streaming and document I/O work off the main thread.
+
+### Fixed
+
+- Cancelling generation now closes the active OkHttp call immediately, including while the provider is connected but not sending another SSE line. Partial output remains saved with a stopped status.
+
 ## 0.5.0 - 2026-07-18
 
 ### Added

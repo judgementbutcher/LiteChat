@@ -1,14 +1,13 @@
 package app.litechat.android.network
 
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.Dispatchers
 import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
 
 class SseFrameParser {
@@ -38,33 +37,53 @@ class SseFrameParser {
 }
 
 class SseClient(private val client: OkHttpClient) {
-    fun execute(request: Request): Flow<Pair<String?, String>> = flow {
+    fun execute(request: Request): Flow<Pair<String?, String>> = kotlinx.coroutines.flow.callbackFlow {
         val call: Call = client.newCall(request)
-        try {
-            val response = call.execute()
-            response.use {
-                if (!it.isSuccessful) {
-                    val body = it.body?.string().orEmpty().take(4_096)
-                    throw ProviderErrorMapper.fromHttp(it.code, body)
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, error: IOException) {
+                if (!call.isCanceled()) {
+                    close(ProviderException(ProviderException.Category.NETWORK, "Network error: ${error.message ?: "connection failed"}"))
                 }
-                val source = it.body?.source() ?: throw ProviderException(
-                    ProviderException.Category.MALFORMED,
-                    "Provider returned an empty response."
-                )
-                val parser = SseFrameParser()
-                while (!source.exhausted()) {
-                    currentCoroutineContext().ensureActive()
-                    val line = source.readUtf8Line() ?: break
-                    parser.accept(line)?.let { frame -> emit(frame) }
-                }
-                parser.finish()?.let { frame -> emit(frame) }
             }
-        } catch (e: ProviderException) {
-            throw e
-        } catch (e: IOException) {
-            throw ProviderException(ProviderException.Category.NETWORK, "Network error: ${e.message ?: "connection failed"}")
-        } finally {
-            call.cancel()
-        }
-    }.flowOn(Dispatchers.IO)
+
+            override fun onResponse(call: Call, response: Response) {
+                try {
+                    response.use {
+                        if (!it.isSuccessful) {
+                            val body = it.body?.string().orEmpty().take(4_096)
+                            throw ProviderErrorMapper.fromHttp(it.code, body)
+                        }
+                        val source = it.body?.source() ?: throw ProviderException(
+                            ProviderException.Category.MALFORMED,
+                            "Provider returned an empty response."
+                        )
+                        val parser = SseFrameParser()
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: break
+                            parser.accept(line)?.let { frame ->
+                                if (trySend(frame).isFailure) return
+                            }
+                        }
+                        parser.finish()?.let { frame -> trySend(frame) }
+                    }
+                    close()
+                } catch (error: Exception) {
+                    if (!call.isCanceled()) {
+                        close(
+                            when (error) {
+                                is ProviderException -> error
+                                is CancellationException -> error
+                                is IOException -> ProviderException(
+                                    ProviderException.Category.NETWORK,
+                                    "Network error: ${error.message ?: "connection failed"}"
+                                )
+                                else -> error
+                            }
+                        )
+                    }
+                }
+            }
+        })
+        awaitClose { call.cancel() }
+    }
 }

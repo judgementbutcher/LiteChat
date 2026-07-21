@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.1 - 2026-07-21
+
+### Fixed
+
+- Streaming replies no longer make the chat viewport flicker. Output following now uses one scroll path, pauses reliably while the user reads earlier messages, and resumes when the user returns to the bottom or sends a new message.
+
 ## 0.6.0 - 2026-07-19
 
 ### Added

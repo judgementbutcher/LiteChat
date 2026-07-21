@@ -1,12 +1,17 @@
 package app.litechat.android.ui
 
-import android.os.SystemClock
 import android.text.method.LinkMovementMethod
 import android.util.TypedValue
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -20,6 +25,9 @@ import io.noties.markwon.ext.latex.JLatexMathPlugin
 import io.noties.markwon.ext.latex.JLatexMathTheme
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.inlineparser.MarkwonInlineParserPlugin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun rememberMarkdownRenderer(): Markwon {
@@ -58,7 +66,31 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
     // on both the light and dark canvas instead of borrowing the near-black/near-white primary.
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val linkColor = (if (dark) Color(0xFF7EB3FF) else Color(0xFF1A73E8)).toArgb()
-    val lastRender = remember { longArrayOf(0L) }
+    var textView by remember { mutableStateOf<AppCompatTextView?>(null) }
+    val request = MarkdownRenderRequest(content, streaming)
+    val latestRequest by rememberUpdatedState(request)
+    val renderRequests = remember(renderer) { Channel<MarkdownRenderRequest>(Channel.CONFLATED) }
+    DisposableEffect(renderRequests) {
+        onDispose { renderRequests.close() }
+    }
+    LaunchedEffect(request, renderRequests) {
+        renderRequests.trySend(request)
+    }
+    LaunchedEffect(textView, renderer, renderRequests) {
+        val view = textView ?: return@LaunchedEffect
+        for (pending in renderRequests) {
+            val rendered = withContext(Dispatchers.Default) {
+                renderer.render(renderer.parse(normalizeMarkdownMath(pending.content)))
+            }
+            if (pending != latestRequest) continue
+            renderer.setParsedMarkdown(view, rendered)
+            view.tag = pending
+            if (!pending.streaming && !view.isTextSelectable) {
+                view.setTextIsSelectable(true)
+                view.movementMethod = LinkMovementMethod.getInstance()
+            }
+        }
+    }
     AndroidView(
         factory = { context ->
             AppCompatTextView(context).apply {
@@ -70,32 +102,14 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
                 setLineSpacing(0f, 1.15f)
                 includeFontPadding = false
                 movementMethod = LinkMovementMethod.getInstance()
-            }
+            }.also { textView = it }
         },
         update = { view ->
             view.setBackgroundColor(backgroundColor)
             view.setTextColor(textColor)
             view.setLinkTextColor(linkColor)
-            // Normalizing math and parsing Markdown (then typesetting LaTeX) is the streaming hot
-            // path. While tokens are still arriving, cap how often the rich layout is rebuilt; the
-            // terminal, non-streaming pass always renders so the finished message is never stale.
-            // Raw content is the change key, so normalization runs only on the ticks we render.
-            val now = SystemClock.elapsedRealtime()
-            val due = !streaming || now - lastRender[0] >= STREAM_RENDER_MIN_INTERVAL_MS
-            val renderKey = if (streaming) "stream\u0000$content" else "markdown\u0000$content"
-            if (view.tag != renderKey && due) {
-                view.tag = renderKey
-                lastRender[0] = now
-                if (streaming) {
-                    view.setText(content)
-                } else {
-                    renderer.setMarkdown(view, normalizeMarkdownMath(content))
-                }
-            }
-            // Once the reply is complete, turn on text selection a single time. Enabling it earlier
-            // would reintroduce the per-token editor rebuild (and the flicker) it causes.
-            if (!streaming && !view.isTextSelectable) {
-                view.setTextIsSelectable(true)
+            if (streaming && view.isTextSelectable) {
+                view.setTextIsSelectable(false)
                 view.movementMethod = LinkMovementMethod.getInstance()
             }
         },
@@ -103,7 +117,7 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
     )
 }
 
-private const val STREAM_RENDER_MIN_INTERVAL_MS = 200L
+private data class MarkdownRenderRequest(val content: String, val streaming: Boolean)
 
 internal fun normalizeMarkdownMath(value: String): String = value
     .split("```")

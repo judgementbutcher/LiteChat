@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.1 - 2026-07-22
+
+### Fixed
+
+- Restored live Markdown and LaTeX formatting while replies stream. Incoming snapshots are conflated, parsed off the main thread, and atomically applied to the existing message view so rich formatting stays responsive without blank frames or stale renders.
+
 ## 0.7.0 - 2026-07-22
 
 ### Added

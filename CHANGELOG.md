@@ -2,6 +2,16 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.5 - 2026-07-21
+
+### Changed
+
+- Redesigned the interface around a calm, flat, neutral visual language inspired by the ChatGPT app: the animated ambient backdrop and translucent "liquid glass" panels are replaced by solid backgrounds and flat surfaces, the palette moves to neutral greys with a single high-contrast accent, and user messages now sit in a simple borderless grey bubble with their actions below.
+
+### Fixed
+
+- Streaming replies no longer flicker. Assistant text is kept non-selectable while it is still arriving, so the whole reply no longer blanks and repaints on every token; text selection is enabled once the response finishes.
+
 ## 0.6.4 - 2026-07-21
 
 ### Fixed

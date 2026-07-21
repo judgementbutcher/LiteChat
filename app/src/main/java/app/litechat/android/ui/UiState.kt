@@ -4,6 +4,8 @@ import app.litechat.android.data.model.AttachmentEntity
 import app.litechat.android.data.model.ConversationEntity
 import app.litechat.android.data.model.MessageEntity
 import app.litechat.android.data.model.ResponseVariantEntity
+import app.litechat.android.network.ReleaseInfo
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -27,6 +29,16 @@ data class ChatUiState(
     val variantsByMessage: Map<String, List<ResponseVariantEntity>> = emptyMap(),
     val attachmentsByMessage: Map<String, List<AttachmentEntity>> = emptyMap()
 )
+
+sealed interface UpdateUiState {
+    data object Idle : UpdateUiState
+    data object Checking : UpdateUiState
+    data object UpToDate : UpdateUiState
+    data class Available(val release: ReleaseInfo) : UpdateUiState
+    data class Downloading(val release: ReleaseInfo, val progress: Int) : UpdateUiState
+    data class Ready(val release: ReleaseInfo, val file: File, val permissionRequired: Boolean = false) : UpdateUiState
+    data class Failed(val message: String) : UpdateUiState
+}
 
 fun groupConversations(
     conversations: List<ConversationEntity>,

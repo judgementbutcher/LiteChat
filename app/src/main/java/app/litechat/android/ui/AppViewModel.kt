@@ -5,10 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import app.litechat.android.AppContainer
+import app.litechat.android.BuildConfig
 import app.litechat.android.attachment.AttachmentProcessor
 import app.litechat.android.data.model.*
 import app.litechat.android.data.settings.ThemeMode
 import app.litechat.android.network.ChatAttachment
+import app.litechat.android.network.isNewerVersion
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -55,6 +57,8 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val providerStatus = MutableStateFlow<Map<String, String>>(emptyMap())
     val updateCheckEnabled: Boolean = container.updateChecker.enabled
     private var generationJob: Job? = null
+    private var updateJob: Job? = null
+    val updateState = MutableStateFlow<UpdateUiState>(UpdateUiState.Idle)
 
     fun openConversation(id: String) { selectedId.value = id }
 
@@ -189,9 +193,46 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     fun setDynamicColor(value: Boolean) = viewModelScope.launch { container.settings.setDynamicColor(value) }
     fun setLanguage(value: String) = viewModelScope.launch { container.settings.setLanguage(value) }
     fun setParameters(temperature: Float, topP: Float) = viewModelScope.launch { container.settings.setParameters(temperature, topP) }
-    fun checkForUpdate() = viewModelScope.launch {
-        runCatching { container.updateChecker.check() }
-            .onSuccess { notice.value = text(app.litechat.android.R.string.latest_release, it.tag, it.url) }.onFailure(::showError)
+    fun checkForUpdate() {
+        if (updateJob?.isActive == true) return
+        updateJob = viewModelScope.launch {
+            updateState.value = UpdateUiState.Checking
+            runCatching { container.updateChecker.check() }
+                .onSuccess { release ->
+                    updateState.value = if (isNewerVersion(release.tag, BuildConfig.VERSION_NAME)) {
+                        UpdateUiState.Available(release)
+                    } else {
+                        UpdateUiState.UpToDate
+                    }
+                }
+                .onFailure { error -> updateState.value = UpdateUiState.Failed(error.message ?: text(app.litechat.android.R.string.unknown_error)) }
+        }
+    }
+
+    fun downloadUpdate() {
+        val release = (updateState.value as? UpdateUiState.Available)?.release ?: return
+        if (updateJob?.isActive == true) return
+        updateJob = viewModelScope.launch {
+            updateState.value = UpdateUiState.Downloading(release, 0)
+            runCatching {
+                container.updateInstaller.download(release) { progress ->
+                    updateState.value = UpdateUiState.Downloading(release, progress.coerceIn(0, 100))
+                }
+            }.onSuccess { file ->
+                updateState.value = UpdateUiState.Ready(release, file)
+            }.onFailure { error ->
+                updateState.value = UpdateUiState.Failed(error.message ?: text(app.litechat.android.R.string.unknown_error))
+            }
+        }
+    }
+
+    fun installUpdate() {
+        val ready = updateState.value as? UpdateUiState.Ready ?: return
+        runCatching { container.updateInstaller.launchInstallation(ready.file) }
+            .onSuccess { started ->
+                if (!started) updateState.value = ready.copy(permissionRequired = true)
+            }
+            .onFailure { error -> updateState.value = UpdateUiState.Failed(error.message ?: text(app.litechat.android.R.string.unknown_error)) }
     }
     fun clearNotice() { notice.value = null }
 

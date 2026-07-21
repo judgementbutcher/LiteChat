@@ -90,6 +90,16 @@
     <string name="temperature">Temperature · %1$.1f</string>
     <string name="top_p">Top P · %1$.2f</string>
     <string name="check_updates">检查更新</string>
+    <string name="app_updates">应用更新</string>
+    <string name="checking_updates">正在检查更新</string>
+    <string name="up_to_date">LiteChat 已是最新版本。</string>
+    <string name="update_available">发现新版本 %1$s。</string>
+    <string name="download_update">下载更新</string>
+    <string name="downloading_update">正在下载更新：%1$d%%</string>
+    <string name="update_ready">版本 %1$s 已准备好安装。</string>
+    <string name="install_update">安装更新</string>
+    <string name="allow_install_updates">请在系统设置中允许 LiteChat 安装未知应用，然后再次点击“安装更新”。</string>
+    <string name="try_again">重试</string>
     <string name="license_summary">MIT 许可证 · 源码优先的 Android 应用</string>
     <string name="backup_summary">备份 schema v2 包含设置（不含 API Key）、对话、回复版本、附件和模板。</string>
     <string name="backup_keys_note">导入不会读取或替换加密保存的 API Key。</string>

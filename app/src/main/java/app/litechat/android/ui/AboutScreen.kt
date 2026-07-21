@@ -18,6 +18,7 @@ import app.litechat.android.data.settings.ThemeMode
 @Composable
 fun AboutScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     ScreenScaffold(stringResource(R.string.about), openDrawer) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
@@ -55,7 +56,39 @@ fun AboutScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             Slider(settings.topP, { viewModel.setParameters(settings.temperature, it) }, valueRange = 0f..1f, steps = 19)
             if (viewModel.updateCheckEnabled) {
                 HorizontalDivider()
-                OutlinedButton(viewModel::checkForUpdate) { Text(stringResource(R.string.check_updates)) }
+                Text(stringResource(R.string.app_updates), style = MaterialTheme.typography.titleMedium)
+                when (val state = updateState) {
+                    UpdateUiState.Idle -> OutlinedButton(viewModel::checkForUpdate) { Text(stringResource(R.string.check_updates)) }
+                    UpdateUiState.Checking -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.checking_updates))
+                    }
+                    UpdateUiState.UpToDate -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.up_to_date), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedButton(viewModel::checkForUpdate) { Text(stringResource(R.string.check_updates)) }
+                    }
+                    is UpdateUiState.Available -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.update_available, state.release.tag))
+                        FilledTonalButton(viewModel::downloadUpdate) { Text(stringResource(R.string.download_update)) }
+                    }
+                    is UpdateUiState.Downloading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.downloading_update, state.progress))
+                        LinearProgressIndicator(progress = { state.progress / 100f }, modifier = Modifier.fillMaxWidth())
+                    }
+                    is UpdateUiState.Ready -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.update_ready, state.release.tag))
+                        if (state.permissionRequired) Text(
+                            stringResource(R.string.allow_install_updates),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(viewModel::installUpdate) { Text(stringResource(R.string.install_update)) }
+                    }
+                    is UpdateUiState.Failed -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(state.message, color = MaterialTheme.colorScheme.error)
+                        OutlinedButton(viewModel::checkForUpdate) { Text(stringResource(R.string.try_again)) }
+                    }
+                }
             }
             Text(stringResource(R.string.license_summary), style = MaterialTheme.typography.bodySmall)
         }

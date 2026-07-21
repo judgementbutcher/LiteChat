@@ -2,6 +2,16 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.2 - 2026-07-21
+
+### Added
+
+- In-app updates from GitHub Releases: LiteChat now compares versions, downloads the matching APK, verifies its SHA-256 checksum, and opens the Android system installer.
+
+### Fixed
+
+- Update checks now reject releases that do not include the matching APK and checksum assets instead of directing users to an incomplete release.
+
 ## 0.6.1 - 2026-07-21
 
 ### Fixed

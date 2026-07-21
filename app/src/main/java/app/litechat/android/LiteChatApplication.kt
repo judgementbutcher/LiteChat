@@ -40,6 +40,7 @@ class AppContainer(application: Application) {
     val attachmentProcessor = AttachmentProcessor(application)
     val backupService = BackupService(application, database)
     val updateChecker = UpdateChecker(httpClient)
+    val updateInstaller = UpdateInstaller(application, httpClient)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init { scope.launch { seedProviders() } }

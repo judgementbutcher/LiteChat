@@ -90,6 +90,16 @@
     <string name="temperature">Temperature · %1$.1f</string>
     <string name="top_p">Top P · %1$.2f</string>
     <string name="check_updates">Check for updates</string>
+    <string name="app_updates">App updates</string>
+    <string name="checking_updates">Checking for updates</string>
+    <string name="up_to_date">LiteChat is up to date.</string>
+    <string name="update_available">Version %1$s is available.</string>
+    <string name="download_update">Download update</string>
+    <string name="downloading_update">Downloading update: %1$d%%</string>
+    <string name="update_ready">Version %1$s is ready to install.</string>
+    <string name="install_update">Install update</string>
+    <string name="allow_install_updates">Allow LiteChat to install unknown apps in system settings, then tap Install update again.</string>
+    <string name="try_again">Try again</string>
     <string name="license_summary">MIT License · Source-first Android app</string>
     <string name="backup_summary">Backup schema v2 includes settings (without API keys), chats, response versions, attachments, and templates.</string>
     <string name="backup_keys_note">Import never reads or replaces encrypted API keys.</string>

@@ -2,6 +2,17 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.0 - 2026-07-22
+
+### Added
+
+- Added on-device speech input with partial transcription and an animated recording control.
+
+### Improved
+
+- Streaming replies now update through a lightweight text path and parse Markdown only after completion, reducing frame work and visible flicker.
+- Chat rows use stable content types and smoother insertion/removal transitions for more consistent scrolling.
+
 ## 0.6.6 - 2026-07-22
 
 ### Fixed

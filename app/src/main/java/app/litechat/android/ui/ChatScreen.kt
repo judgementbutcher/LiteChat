@@ -1,6 +1,11 @@
 package app.litechat.android.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +37,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -211,28 +217,30 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(22.dp)
                 ) {
-                    uiState.messages.forEachIndexed { index, message ->
-                        item(key = message.id) {
-                            Box(
-                                Modifier.fillMaxWidth().animateItem(
-                                    fadeInSpec = tween(220),
-                                    fadeOutSpec = tween(140),
-                                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
-                                )
-                            ) {
-                                MessageItem(
-                                    message = message,
-                                    variants = uiState.variantsByMessage[message.id].orEmpty(),
-                                    attachments = uiState.attachmentsByMessage[message.id].orEmpty(),
-                                    markdownRenderer = markdownRenderer,
-                                    latestAssistant = message.role == "assistant" && index == lastAssistantIndex,
-                                    modelName = modelName,
-                                    onEdit = { editing = message },
-                                    onRetry = { viewModel.retry(message.id) },
-                                    onRetryWith = { retryPickerFor = message.id },
-                                    onSelectVariant = { viewModel.selectVariant(message.id, it) }
-                                )
-                            }
+                    itemsIndexed(
+                        items = uiState.messages,
+                        key = { _, message -> message.id },
+                        contentType = { _, message -> message.role }
+                    ) { index, message ->
+                        Box(
+                            Modifier.fillMaxWidth().animateItem(
+                                fadeInSpec = tween(220),
+                                fadeOutSpec = tween(140),
+                                placementSpec = spring(stiffness = Spring.StiffnessMediumLow)
+                            )
+                        ) {
+                            MessageItem(
+                                message = message,
+                                variants = uiState.variantsByMessage[message.id].orEmpty(),
+                                attachments = uiState.attachmentsByMessage[message.id].orEmpty(),
+                                markdownRenderer = markdownRenderer,
+                                latestAssistant = message.role == "assistant" && index == lastAssistantIndex,
+                                modelName = modelName,
+                                onEdit = { editing = message },
+                                onRetry = { viewModel.retry(message.id) },
+                                onRetryWith = { retryPickerFor = message.id },
+                                onSelectVariant = { viewModel.selectVariant(message.id, it) }
+                            )
                         }
                     }
                     item(key = "bottom-anchor") { Spacer(Modifier.fillMaxWidth().height(4.dp).testTag("chat-bottom-anchor")) }
@@ -522,6 +530,65 @@ private fun ChatComposer(
     stop: () -> Unit,
     send: () -> Unit
 ) {
+    val context = LocalContext.current
+    val speechAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
+    var listening by remember { mutableStateOf(false) }
+    var startAfterPermission by remember { mutableStateOf(false) }
+    var voiceBaseText by remember { mutableStateOf("") }
+    val latestDraft by rememberUpdatedState(draft)
+    val latestOnDraft by rememberUpdatedState(onDraft)
+    val recognizer = remember(context, speechAvailable) {
+        if (!speechAvailable) null else SpeechRecognizer.createSpeechRecognizer(context)
+    }
+    DisposableEffect(recognizer) {
+        if (recognizer == null) onDispose { } else {
+            recognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: android.os.Bundle?) { listening = true }
+                override fun onBeginningOfSpeech() { listening = true }
+                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() { listening = false }
+                override fun onError(error: Int) { listening = false }
+                override fun onResults(results: android.os.Bundle?) {
+                    val result = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!result.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")))
+                    listening = false
+                }
+                override fun onPartialResults(results: android.os.Bundle?) {
+                    val result = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!result.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")))
+                }
+                override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
+            })
+            onDispose { recognizer.destroy() }
+        }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && startAfterPermission) {
+            startAfterPermission = false
+            recognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            })
+        }
+    }
+    fun toggleVoice() {
+        if (recognizer == null) return
+        if (listening) {
+            recognizer.stopListening()
+            listening = false
+        } else if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            voiceBaseText = draft.text
+            recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            })
+        } else {
+            voiceBaseText = draft.text
+            startAfterPermission = true
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
     val borderColor by animateColorAsState(
         if (generating) MaterialTheme.colorScheme.outline
         else MaterialTheme.colorScheme.outlineVariant,
@@ -615,6 +682,23 @@ private fun ChatComposer(
                             disabledIndicatorColor = Color.Transparent
                         )
                     )
+                    Spacer(Modifier.width(4.dp))
+                    AnimatedVisibility(
+                        visible = speechAvailable && !generating,
+                        enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.8f, animationSpec = tween(160)),
+                        exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.8f, animationSpec = tween(120))
+                    ) {
+                        FilledIconButton(
+                            onClick = { toggleVoice() },
+                            modifier = Modifier.size(44.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = if (listening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = if (listening) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(if (listening) Lucide.Square else Lucide.Mic, stringResource(if (listening) R.string.stop_recording else R.string.voice_input))
+                        }
+                    }
                     Spacer(Modifier.width(4.dp))
                     AnimatedContent(
                         targetState = generating,

@@ -82,10 +82,15 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
             // Raw content is the change key, so normalization runs only on the ticks we render.
             val now = SystemClock.elapsedRealtime()
             val due = !streaming || now - lastRender[0] >= STREAM_RENDER_MIN_INTERVAL_MS
-            if (view.tag != content && due) {
-                view.tag = content
+            val renderKey = if (streaming) "stream\u0000$content" else "markdown\u0000$content"
+            if (view.tag != renderKey && due) {
+                view.tag = renderKey
                 lastRender[0] = now
-                renderer.setMarkdown(view, normalizeMarkdownMath(content))
+                if (streaming) {
+                    view.setText(content)
+                } else {
+                    renderer.setMarkdown(view, normalizeMarkdownMath(content))
+                }
             }
             // Once the reply is complete, turn on text selection a single time. Enabling it earlier
             // would reintroduce the per-token editor rebuild (and the flicker) it causes.

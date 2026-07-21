@@ -114,4 +114,6 @@
     <string name="latest_release">Latest release: %1$s · %2$s</string>
     <string name="unknown_error">Something went wrong.</string>
     <string name="code">code</string>
+    <string name="voice_input">Voice input</string>
+    <string name="stop_recording">Stop recording</string>
 </resources>

@@ -49,6 +49,11 @@ internal fun rememberMarkdownRenderer(): Markwon {
 @Composable
 internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modifier = Modifier, streaming: Boolean = false) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    // The reply text sits directly on the canvas, so paint the TextView with an opaque canvas-
+    // coloured background. Without it a plain (non-selectable) TextView does not clear its own
+    // pixels when setMarkdown replaces the layout mid-stream: the previous frame's glyphs stay
+    // underneath the new ones and the reply looks like two answers stacked on top of each other.
+    val backgroundColor = MaterialTheme.colorScheme.background.toArgb()
     // The accent is monochrome in the ChatGPT-style palette, so links get their own blue that reads
     // on both the light and dark canvas instead of borrowing the near-black/near-white primary.
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -68,6 +73,7 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
             }
         },
         update = { view ->
+            view.setBackgroundColor(backgroundColor)
             view.setTextColor(textColor)
             view.setLinkTextColor(linkColor)
             // Normalizing math and parsing Markdown (then typesetting LaTeX) is the streaming hot

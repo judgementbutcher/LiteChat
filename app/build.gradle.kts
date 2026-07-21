@@ -14,8 +14,8 @@ android {
         applicationId = "app.litechat.android"
         minSdk = 31
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.6.5"
+        versionCode = 12
+        versionName = "0.6.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         buildConfigField("String", "GITHUB_OWNER", "\"judgementbutcher\"")

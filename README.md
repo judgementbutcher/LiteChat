@@ -12,7 +12,7 @@ LiteChat is a lightweight, native Android AI chat client. It talks directly from
 
 ## Install the debug APK
 
-The generated artifact is `artifacts/LiteChat-0.6.5-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
+The generated artifact is `artifacts/LiteChat-0.6.6-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
 
 To build it yourself:
 

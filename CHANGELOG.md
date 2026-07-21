@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.6 - 2026-07-22
+
+### Fixed
+
+- Streaming replies no longer look like two overlapping answers. The reply text now paints over its previous frame on every update, so partially rendered tokens are cleared instead of ghosting on top of each other while the model is answering.
+
 ## 0.6.5 - 2026-07-21
 
 ### Changed

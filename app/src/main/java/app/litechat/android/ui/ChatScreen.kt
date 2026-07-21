@@ -95,6 +95,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         { providerId, modelId -> models.firstOrNull { it.providerId == providerId && it.modelId == modelId }?.displayName ?: modelId }
     }
     var followOutput by remember(conversationId) { mutableStateOf(true) }
+    var draggedSinceLastIdle by remember(conversationId) { mutableStateOf(false) }
     val atBottom by remember {
         derivedStateOf { !listState.canScrollForward }
     }
@@ -108,9 +109,16 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
             ?.content
             ?.length
     } ?: 0
-    LaunchedEffect(isDragged, atBottom) {
-        if (isDragged) followOutput = false
-        else if (atBottom) followOutput = true
+    LaunchedEffect(isDragged) {
+        if (isDragged) {
+            draggedSinceLastIdle = true
+            followOutput = false
+        } else if (draggedSinceLastIdle && atBottom) {
+            followOutput = true
+            draggedSinceLastIdle = false
+        } else {
+            draggedSinceLastIdle = false
+        }
     }
     LaunchedEffect(uiState.messages.size, latestLength) {
         if (followOutput && uiState.messages.isNotEmpty()) {
@@ -118,16 +126,6 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
             listState.scrollToItem(uiState.messages.size)
         }
     }
-    LaunchedEffect(followOutput, uiState.messages.size) {
-        if (!followOutput || uiState.messages.isEmpty()) return@LaunchedEffect
-        snapshotFlow { listState.canScrollForward }.collect { canScrollForward ->
-            if (canScrollForward) {
-                withFrameNanos { }
-                listState.scrollToItem(uiState.messages.size)
-            }
-        }
-    }
-
     Scaffold(
         containerColor = Color.Transparent,
         modifier = Modifier.windowInsetsPadding(
@@ -184,6 +182,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 send = {
                     if (!generating && (draft.text.isNotBlank() || pending.isNotEmpty())) {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        followOutput = true
                         viewModel.send(draft.text)
                         draft = TextFieldValue()
                     }

@@ -12,11 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.material3.MaterialTheme
 import kotlin.math.PI
 import kotlin.math.sin
 
-/** A low-contrast animated light field behind the translucent app surfaces. */
+/** A low-contrast flowing light field behind the translucent app surfaces. */
 @Composable
 internal fun AmbientBackdrop(modifier: Modifier = Modifier) {
     val reduceMotion = rememberReduceMotion()
@@ -29,40 +30,42 @@ internal fun AmbientBackdrop(modifier: Modifier = Modifier) {
     )
     val colors = MaterialTheme.colorScheme
     Canvas(modifier) {
-        drawRect(
-            Brush.verticalGradient(
-                listOf(colors.background, colors.surfaceContainerLowest, colors.background)
-            )
-        )
+        drawRect(Brush.verticalGradient(listOf(colors.background, colors.surfaceContainerLowest, colors.background)))
 
         val cycle = phase * (2f * PI.toFloat())
-        val radius = size.minDimension * 0.72f
-        val primaryCenter = Offset(
-            size.width * (0.12f + 0.12f * sin(cycle)),
-            size.height * (0.14f + 0.07f * sin(cycle * 0.7f))
-        )
-        val secondaryCenter = Offset(
-            size.width * (0.88f + 0.08f * sin(cycle + 2.1f)),
-            size.height * (0.72f + 0.09f * sin(cycle * 0.6f + 1.2f))
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(colors.primary.copy(alpha = 0.13f), Color.Transparent),
-                center = primaryCenter,
-                radius = radius
-            ),
-            radius = radius,
-            center = primaryCenter
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(colors.tertiary.copy(alpha = 0.09f), Color.Transparent),
-                center = secondaryCenter,
-                radius = radius * 0.9f
-            ),
-            radius = radius * 0.9f,
-            center = secondaryCenter
-        )
+        val drift = size.width * (0.16f + sin(cycle) * 0.08f)
+        val primaryRibbon = Path().apply {
+            moveTo(-size.width * 0.3f + drift, -size.height * 0.08f)
+            cubicTo(
+                size.width * 0.24f + drift, size.height * 0.12f,
+                size.width * 0.46f - drift * 0.2f, size.height * 0.32f,
+                size.width * 1.15f, size.height * 0.18f
+            )
+            lineTo(size.width * 1.15f, size.height * 0.38f)
+            cubicTo(
+                size.width * 0.54f, size.height * 0.54f,
+                size.width * 0.22f + drift * 0.35f, size.height * 0.3f,
+                -size.width * 0.3f + drift, size.height * 0.14f
+            )
+            close()
+        }
+        val secondaryRibbon = Path().apply {
+            moveTo(-size.width * 0.1f, size.height * 0.65f)
+            cubicTo(
+                size.width * 0.3f - drift * 0.15f, size.height * 0.48f,
+                size.width * 0.72f + drift * 0.2f, size.height * 0.92f,
+                size.width * 1.1f, size.height * 0.72f
+            )
+            lineTo(size.width * 1.1f, size.height * 0.88f)
+            cubicTo(
+                size.width * 0.66f, size.height * 1.04f,
+                size.width * 0.25f, size.height * 0.65f,
+                -size.width * 0.1f, size.height * 0.82f
+            )
+            close()
+        }
+        drawPath(primaryRibbon, colors.primary.copy(alpha = 0.065f))
+        drawPath(secondaryRibbon, colors.tertiary.copy(alpha = 0.045f))
 
         val grid = 56f * density
         var x = 0f

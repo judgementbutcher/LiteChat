@@ -311,10 +311,11 @@ private fun MessageItem(
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Center) {
         if (isUser) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            LiquidGlassSurface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                 shape = MaterialTheme.shapes.large,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.36f),
+                shadowElevation = 4.dp,
                 modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.86f)
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
@@ -538,12 +539,11 @@ private fun ChatComposer(
         Modifier.fillMaxWidth().background(Color.Transparent),
         contentAlignment = Alignment.Center
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-            tonalElevation = 0.dp,
+        LiquidGlassSurface(
+            color = MaterialTheme.colorScheme.surface,
             shadowElevation = if (generating) 14.dp else 8.dp,
             shape = MaterialTheme.shapes.extraLarge,
-            border = BorderStroke(1.dp, borderColor),
+            borderColor = borderColor,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp).widthIn(max = 840.dp).fillMaxWidth()
         ) {
             Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
@@ -665,7 +665,11 @@ private fun ChatComposer(
 
 @Composable
 private fun PendingAttachment(item: ChatAttachment, remove: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.small) {
+    LiquidGlassSurface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.small,
+        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+    ) {
         Row(Modifier.height(52.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (item.mimeType.startsWith("image/")) AttachmentThumbnail(item.localPath) else Icon(Lucide.File, null)
             Spacer(Modifier.width(6.dp))

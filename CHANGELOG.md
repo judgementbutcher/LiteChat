@@ -2,6 +2,14 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.3 - 2026-07-21
+
+### Changed
+
+- Refined the default dark interface into a calmer, more concise glass system with clearer depth, brighter text contrast and a more cohesive mint-and-lilac accent palette.
+- Reworked the background into low-contrast flowing light ribbons and added restrained refraction highlights across the navigation, chat composer, message bubbles and management screens.
+- Settings and data-management controls are now grouped into clearer translucent panels; glass motion shares one lightweight animation timeline and respects the system remove-animations setting.
+
 ## 0.6.2 - 2026-07-21
 
 ### Added

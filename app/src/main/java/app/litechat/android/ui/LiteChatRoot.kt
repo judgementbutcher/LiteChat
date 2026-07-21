@@ -51,11 +51,15 @@ fun LiteChatRoot(viewModel: AppViewModel) {
     val scope = rememberCoroutineScope()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val liquidGlassPhase = rememberLiquidGlassPhase()
     LaunchedEffect(notice) {
         notice?.let { snackbar.showSnackbar(it); viewModel.clearNotice() }
     }
 
-    CompositionLocalProvider(LocalAppSnackbarHostState provides snackbar) {
+    CompositionLocalProvider(
+        LocalAppSnackbarHostState provides snackbar,
+        LocalLiquidGlassPhase provides liquidGlassPhase
+    ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = Color.Transparent,
@@ -71,9 +75,9 @@ fun LiteChatRoot(viewModel: AppViewModel) {
                     }
                     if (sidebarWidth != null) {
                         Row(Modifier.fillMaxSize()) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)),
+                            LiquidGlassSurface(
+                                color = MaterialTheme.colorScheme.surface,
+                                borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
                                 shadowElevation = 18.dp,
                                 modifier = Modifier.width(sidebarWidth).fillMaxHeight()
                             ) { ConversationSidebar(viewModel, nav) }
@@ -147,10 +151,10 @@ private fun ConversationSidebar(viewModel: AppViewModel, nav: NavHostController,
             Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+            LiquidGlassSurface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f),
                 shape = MaterialTheme.shapes.medium,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
+                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
             ) {
                 Icon(Lucide.MessageCircle, null, Modifier.padding(9.dp).size(20.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }
@@ -311,10 +315,10 @@ private fun EmptyHomeScreen(openDrawer: (() -> Unit)?, create: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            LiquidGlassSurface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                 shape = MaterialTheme.shapes.extraLarge,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.34f),
                 shadowElevation = 18.dp
             ) {
                 Icon(
@@ -406,10 +410,10 @@ private fun ArchivedScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             )
             LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 12.dp)) {
                 items(conversations, key = { it.id }) { conversation ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
+                    LiquidGlassSurface(
+                        color = MaterialTheme.colorScheme.surface,
                         shape = MaterialTheme.shapes.large,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+                        borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
                         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).animateItem()
                     ) {
                         ListItem(

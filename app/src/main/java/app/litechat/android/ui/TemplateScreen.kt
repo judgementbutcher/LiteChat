@@ -1,6 +1,5 @@
 package app.litechat.android.ui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,10 +31,11 @@ fun TemplateScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(templates, key = { it.id }) { template ->
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
+                LiquidGlassSurface(
+                    color = MaterialTheme.colorScheme.surface,
                     shape = MaterialTheme.shapes.large,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+                    borderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f),
+                    shadowElevation = 3.dp,
                     modifier = Modifier.fillMaxWidth().animateItem().clickable { editing = template }
                 ) {
                     ListItem(

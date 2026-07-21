@@ -30,36 +30,36 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF79F2CA),
-    onPrimary = Color(0xFF00382B),
-    primaryContainer = Color(0xFF123D33),
-    onPrimaryContainer = Color(0xFFA2F8DB),
-    secondary = Color(0xFFAFC9F3),
-    onSecondary = Color(0xFF19314E),
-    secondaryContainer = Color(0xFF24364C),
-    onSecondaryContainer = Color(0xFFD5E5FF),
-    tertiary = Color(0xFFC9B6FF),
-    onTertiary = Color(0xFF33245E),
-    tertiaryContainer = Color(0xFF30264B),
-    onTertiaryContainer = Color(0xFFE9DDFF),
-    background = Color(0xFF050607),
-    onBackground = Color(0xFFE8ECEA),
-    surface = Color(0xFF080A0C),
-    onSurface = Color(0xFFE8ECEA),
-    surfaceVariant = Color(0xFF171B20),
-    onSurfaceVariant = Color(0xFFB9C2BE),
-    outline = Color(0xFF7B8581),
-    outlineVariant = Color(0xFF28302D),
+    primary = Color(0xFF8CF5D4),
+    onPrimary = Color(0xFF00382D),
+    primaryContainer = Color(0xFF123F35),
+    onPrimaryContainer = Color(0xFFB6FFE6),
+    secondary = Color(0xFFB7CBFF),
+    onSecondary = Color(0xFF1C2E54),
+    secondaryContainer = Color(0xFF23375D),
+    onSecondaryContainer = Color(0xFFDCE7FF),
+    tertiary = Color(0xFFD5C2FF),
+    onTertiary = Color(0xFF37255D),
+    tertiaryContainer = Color(0xFF372850),
+    onTertiaryContainer = Color(0xFFF0E7FF),
+    background = Color(0xFF07090D),
+    onBackground = Color(0xFFF0F3F7),
+    surface = Color(0xFF10141B),
+    onSurface = Color(0xFFF0F3F7),
+    surfaceVariant = Color(0xFF1A202A),
+    onSurfaceVariant = Color(0xFFC2C9D4),
+    outline = Color(0xFF8992A0),
+    outlineVariant = Color(0xFF303945),
     error = Color(0xFFFFB4AB),
     errorContainer = Color(0xFF4B1717)
 )
 
 private val LiteChatShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(22.dp),
-    extraLarge = RoundedCornerShape(30.dp)
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(32.dp)
 )
 
 private val LiteChatTypography = Typography(

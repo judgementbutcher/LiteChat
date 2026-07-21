@@ -45,16 +45,32 @@ fun DataScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
             Modifier.fillMaxSize().padding(padding).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(stringResource(R.string.backup_summary))
-            Button(onClick = { viewModel.exportBackup { text -> pendingJson = text; exportJson.launch("litechat-backup.json") } }) {
-                Text(stringResource(R.string.export_backup))
+            LiquidGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 3.dp
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.backup_summary))
+                    Button(onClick = { viewModel.exportBackup { text -> pendingJson = text; exportJson.launch("litechat-backup.json") } }) {
+                        Text(stringResource(R.string.export_backup))
+                    }
+                    OutlinedButton(onClick = { importJson.launch(arrayOf("application/json", "text/json")) }) {
+                        Text(stringResource(R.string.import_backup))
+                    }
+                    Text(stringResource(R.string.backup_keys_note), style = MaterialTheme.typography.bodySmall)
+                }
             }
-            OutlinedButton(onClick = { importJson.launch(arrayOf("application/json", "text/json")) }) { Text(stringResource(R.string.import_backup)) }
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Button(onClick = { viewModel.exportMarkdown { text -> pendingMarkdown = text; exportMarkdown.launch("litechat-conversation.md") } }) {
-                Text(stringResource(R.string.export_markdown))
+            LiquidGlassSurface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 3.dp
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.export_markdown), style = MaterialTheme.typography.titleMedium)
+                    Button(onClick = { viewModel.exportMarkdown { text -> pendingMarkdown = text; exportMarkdown.launch("litechat-conversation.md") } }) {
+                        Text(stringResource(R.string.export_markdown))
+                    }
+                }
             }
-            Text(stringResource(R.string.backup_keys_note), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

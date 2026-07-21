@@ -301,18 +301,21 @@ private fun MessageItem(
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Center) {
         if (isUser) {
-            LiquidGlassSurface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                shape = MaterialTheme.shapes.large,
-                borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.36f),
-                shadowElevation = 4.dp,
-                modifier = Modifier.widthIn(max = 680.dp).fillMaxWidth(.86f)
+            Column(
+                modifier = Modifier.widthIn(max = 560.dp),
+                horizontalAlignment = Alignment.End
             ) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), horizontalAlignment = Alignment.End) {
-                    if (attachments.isNotEmpty()) SentAttachments(attachments)
-                    if (content.isNotEmpty()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
-                    UserActions(content, onEdit)
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        if (attachments.isNotEmpty()) SentAttachments(attachments)
+                        if (content.isNotEmpty()) SelectionContainer { Text(content, style = MaterialTheme.typography.bodyLarge) }
+                    }
                 }
+                UserActions(content, onEdit)
             }
         } else {
             Column(Modifier.widthIn(max = 800.dp).fillMaxWidth()) {
@@ -520,8 +523,8 @@ private fun ChatComposer(
     send: () -> Unit
 ) {
     val borderColor by animateColorAsState(
-        if (generating) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f),
+        if (generating) MaterialTheme.colorScheme.outline
+        else MaterialTheme.colorScheme.outlineVariant,
         animationSpec = tween(280),
         label = "composer-border"
     )
@@ -530,8 +533,8 @@ private fun ChatComposer(
         contentAlignment = Alignment.Center
     ) {
         LiquidGlassSurface(
-            color = MaterialTheme.colorScheme.surface,
-            shadowElevation = if (generating) 14.dp else 8.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shadowElevation = if (generating) 6.dp else 3.dp,
             shape = MaterialTheme.shapes.extraLarge,
             borderColor = borderColor,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp).widthIn(max = 840.dp).fillMaxWidth()

@@ -51,22 +51,19 @@ fun LiteChatRoot(viewModel: AppViewModel) {
     val scope = rememberCoroutineScope()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    val liquidGlassPhase = rememberLiquidGlassPhase()
     LaunchedEffect(notice) {
         notice?.let { snackbar.showSnackbar(it); viewModel.clearNotice() }
     }
 
     CompositionLocalProvider(
-        LocalAppSnackbarHostState provides snackbar,
-        LocalLiquidGlassPhase provides liquidGlassPhase
+        LocalAppSnackbarHostState provides snackbar
     ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = Color.Transparent,
+            color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground
         ) {
             Box(Modifier.fillMaxSize()) {
-                AmbientBackdrop(Modifier.fillMaxSize())
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     val sidebarWidth = when {
                         maxWidth >= 840.dp -> 300.dp

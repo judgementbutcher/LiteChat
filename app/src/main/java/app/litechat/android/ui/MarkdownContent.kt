@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -47,12 +49,18 @@ internal fun rememberMarkdownRenderer(): Markwon {
 @Composable
 internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modifier = Modifier, streaming: Boolean = false) {
     val textColor = MaterialTheme.colorScheme.onSurface.toArgb()
-    val linkColor = MaterialTheme.colorScheme.primary.toArgb()
+    // The accent is monochrome in the ChatGPT-style palette, so links get their own blue that reads
+    // on both the light and dark canvas instead of borrowing the near-black/near-white primary.
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val linkColor = (if (dark) Color(0xFF7EB3FF) else Color(0xFF1A73E8)).toArgb()
     val lastRender = remember { longArrayOf(0L) }
     AndroidView(
         factory = { context ->
             AppCompatTextView(context).apply {
-                setTextIsSelectable(true)
+                // Selection is enabled only once the stream settles (see below). A selectable
+                // TextView rebuilds its whole text Editor on every setText, which is what makes a
+                // streaming reply blank-and-repaint on every token. ChatGPT keeps in-flight text
+                // non-selectable for the same reason.
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
                 setLineSpacing(0f, 1.15f)
                 includeFontPadding = false
@@ -72,6 +80,12 @@ internal fun MarkdownContent(content: String, renderer: Markwon, modifier: Modif
                 view.tag = content
                 lastRender[0] = now
                 renderer.setMarkdown(view, normalizeMarkdownMath(content))
+            }
+            // Once the reply is complete, turn on text selection a single time. Enabling it earlier
+            // would reintroduce the per-token editor rebuild (and the flicker) it causes.
+            if (!streaming && !view.isTextSelectable) {
+                view.setTextIsSelectable(true)
+                view.movementMethod = LinkMovementMethod.getInstance()
             }
         },
         modifier = modifier

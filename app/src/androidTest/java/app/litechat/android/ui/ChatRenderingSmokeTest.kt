@@ -3,6 +3,7 @@ package app.litechat.android.ui
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -102,6 +103,10 @@ class ChatRenderingSmokeTest {
                 "Streaming paragraph $it keeps the response tall while output is still arriving."
             }
             database.variantDao().upsert(streaming.copy(content = longMarkdown, updatedAt = System.currentTimeMillis()))
+            compose.waitForIdle()
+            compose.onNodeWithTag("chat-bottom-anchor").assertIsNotDisplayed()
+            compose.onNodeWithTag("scroll-to-bottom").assertIsDisplayed()
+            compose.onNodeWithTag("scroll-to-bottom").performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("chat-bottom-anchor").assertIsDisplayed()
 

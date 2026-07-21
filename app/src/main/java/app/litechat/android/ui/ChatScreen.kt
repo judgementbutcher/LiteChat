@@ -29,7 +29,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.lazy.LazyColumn
@@ -94,36 +93,24 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     val modelName: (String, String) -> String = remember(models) {
         { providerId, modelId -> models.firstOrNull { it.providerId == providerId && it.modelId == modelId }?.displayName ?: modelId }
     }
-    var followOutput by remember(conversationId) { mutableStateOf(true) }
-    var draggedSinceLastIdle by remember(conversationId) { mutableStateOf(false) }
+    var initialScrollComplete by remember(conversationId) { mutableStateOf(false) }
+    var scrollAfterMessageCount by remember(conversationId) { mutableStateOf<Int?>(null) }
     val atBottom by remember {
         derivedStateOf { !listState.canScrollForward }
     }
-    val isDragged by listState.interactionSource.collectIsDraggedAsState()
     val attachmentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         viewModel.addAttachments(uris)
     }
-    val latestLength = uiState.messages.lastOrNull { it.role == "assistant" }?.let { message ->
-        uiState.variantsByMessage[message.id]
-            ?.firstOrNull { it.id == message.selectedVariantId }
-            ?.content
-            ?.length
-    } ?: 0
-    LaunchedEffect(isDragged) {
-        if (isDragged) {
-            draggedSinceLastIdle = true
-            followOutput = false
-        } else if (draggedSinceLastIdle && atBottom) {
-            followOutput = true
-            draggedSinceLastIdle = false
-        } else {
-            draggedSinceLastIdle = false
-        }
-    }
-    LaunchedEffect(uiState.messages.size, latestLength) {
-        if (followOutput && uiState.messages.isNotEmpty()) {
+    LaunchedEffect(conversationId, uiState.conversation?.id, uiState.messages.size) {
+        if (uiState.conversation?.id == conversationId && uiState.messages.isNotEmpty()) {
+            val requestedCount = scrollAfterMessageCount
+            val requestReady = requestedCount != null && uiState.messages.size >= requestedCount
+            val needsInitialPosition = !initialScrollComplete && requestedCount == null
+            if (!requestReady && !needsInitialPosition) return@LaunchedEffect
             withFrameNanos { }
             listState.scrollToItem(uiState.messages.size)
+            initialScrollComplete = true
+            if (requestReady) scrollAfterMessageCount = null
         }
     }
     Scaffold(
@@ -182,7 +169,9 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 send = {
                     if (!generating && (draft.text.isNotBlank() || pending.isNotEmpty())) {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        followOutput = true
+                        // The repository inserts one user row and one assistant row before
+                        // streaming. Position once after both exist, then leave the viewport still.
+                        scrollAfterMessageCount = uiState.messages.size + 2
                         viewModel.send(draft.text)
                         draft = TextFieldValue()
                     }
@@ -250,17 +239,18 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 }
             }
             AnimatedVisibility(
-                visible = !followOutput && !atBottom && uiState.messages.isNotEmpty(),
+                visible = !atBottom && uiState.messages.isNotEmpty(),
                 enter = fadeIn(tween(160)) + scaleIn(tween(160)),
                 exit = fadeOut(tween(160)) + scaleOut(tween(160)),
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
             ) {
                 FilledTonalIconButton(onClick = {
-                    followOutput = true
                     scope.launch {
-                        listState.scrollToItem(uiState.messages.size)
+                        listState.animateScrollToItem(uiState.messages.size)
                     }
-                }) { Icon(Lucide.ArrowDown, stringResource(R.string.scroll_to_bottom)) }
+                }, modifier = Modifier.testTag("scroll-to-bottom")) {
+                    Icon(Lucide.ArrowDown, stringResource(R.string.scroll_to_bottom))
+                }
             }
         }
     }

@@ -2,6 +2,13 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.6.4 - 2026-07-21
+
+### Fixed
+
+- Streaming replies no longer force the chat viewport to follow every response update, preventing repeated scroll repositioning and visible flicker while the model is answering.
+- Added a one-shot scroll-to-bottom action so users can read earlier content during generation and return to the latest response when they choose.
+
 ## 0.6.3 - 2026-07-21
 
 ### Changed

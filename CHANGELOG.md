@@ -2,6 +2,21 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.7 - 2026-07-22
+
+### Fixed
+
+- Prevented voice input from crashing when Android has no usable speech recognition service or a recognizer fails to start; unsupported devices now fall back safely or show a clear message.
+
+### Changed
+
+- Reduced the built-in provider presets to the official OpenAI, Anthropic, Gemini and DeepSeek endpoints. Existing user-created providers, including new-api reverse proxies, are preserved.
+
+### Improved
+
+- Reduced cold-start work by loading the PDF engine only when a PDF is first opened.
+- Reduced streaming database/UI churn and cached provider/model lookups for smoother response rendering and navigation.
+
 ## 0.7.6 - 2026-07-22
 
 ### Fixed

@@ -7,6 +7,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.graphics.BitmapFactory
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -61,6 +62,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -96,9 +98,12 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val markdownRenderer = rememberMarkdownRenderer()
-    val modelName: (String, String) -> String = remember(models) {
-        { providerId, modelId -> models.firstOrNull { it.providerId == providerId && it.modelId == modelId }?.displayName ?: modelId }
+    val modelsById = remember(models) { models.associateBy { it.providerId to it.modelId } }
+    val modelName: (String, String) -> String = remember(modelsById) {
+        { providerId, modelId -> modelsById[providerId to modelId]?.displayName ?: modelId }
     }
+    val enabledProviderIds = remember(providers) { providers.asSequence().filter { it.enabled }.mapTo(hashSetOf()) { it.id } }
+    val availableModels = remember(models, enabledProviderIds) { models.filter { it.providerId in enabledProviderIds } }
     var initialScrollComplete by remember(conversationId) { mutableStateOf(false) }
     var scrollAfterMessageCount by remember(conversationId) { mutableStateOf<Int?>(null) }
     val atBottom by remember {
@@ -137,9 +142,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        val activeModel = models.firstOrNull {
-                            it.providerId == conversation?.providerId && it.modelId == conversation.modelId
-                        }
+                        val activeModel = modelsById[conversation?.providerId to conversation?.modelId]
                         if (activeModel != null) Text(
                             activeModel.displayName,
                             style = MaterialTheme.typography.labelSmall,
@@ -164,7 +167,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 pending = pending,
                 templates = templates,
                 generating = generating,
-                model = models.firstOrNull { it.providerId == conversation?.providerId && it.modelId == conversation.modelId },
+                model = modelsById[conversation?.providerId to conversation?.modelId],
                 searchEnabled = conversation?.searchEnabled == true,
                 attach = { attachmentLauncher.launch(arrayOf("image/*", "text/plain", "text/markdown", "application/pdf")) },
                 removeAttachment = viewModel::removePending,
@@ -279,13 +282,13 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
     }
     if (modelPickerOpen && conversation != null) ModelPicker(
         conversation = conversation,
-        models = models.filter { model -> providers.any { it.id == model.providerId && it.enabled } },
+        models = availableModels,
         dismiss = { modelPickerOpen = false },
         select = { model -> viewModel.updateConversation(conversation.copy(providerId = model.providerId, modelId = model.modelId)); modelPickerOpen = false }
     )
     if (retryPickerFor != null && conversation != null) ModelPicker(
         conversation = conversation,
-        models = models.filter { model -> providers.any { it.id == model.providerId && it.enabled } },
+        models = availableModels,
         dismiss = { retryPickerFor = null },
         select = { model -> retryPickerFor?.let { viewModel.retryWith(it, model) }; retryPickerFor = null }
     )
@@ -536,15 +539,23 @@ private fun ChatComposer(
     send: () -> Unit
 ) {
     val context = LocalContext.current
-    val speechAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
-    val voiceInputAvailable = true
+    val voiceUnavailableMessage = stringResource(R.string.voice_input_unavailable)
+    val speechAvailable = remember(context) {
+        runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
+    }
+    val systemSpeechAvailable = remember(context) {
+        runCatching {
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).resolveActivity(context.packageManager) != null
+        }.getOrDefault(false)
+    }
+    val voiceInputAvailable = speechAvailable || systemSpeechAvailable
     var listening by remember { mutableStateOf(false) }
     var startAfterPermission by remember { mutableStateOf(false) }
     var voiceBaseText by remember { mutableStateOf("") }
-    val latestDraft by rememberUpdatedState(draft)
     val latestOnDraft by rememberUpdatedState(onDraft)
+    val latestVoiceBaseText by rememberUpdatedState(voiceBaseText)
     val recognizer = remember(context, speechAvailable) {
-        if (!speechAvailable) null else SpeechRecognizer.createSpeechRecognizer(context)
+        if (!speechAvailable) null else runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull()
     }
     DisposableEffect(recognizer) {
         if (recognizer == null) onDispose { } else {
@@ -557,37 +568,48 @@ private fun ChatComposer(
                 override fun onError(error: Int) { listening = false }
                 override fun onResults(results: android.os.Bundle?) {
                     val result = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                    if (!result.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")))
+                    if (!result.isNullOrBlank()) {
+                        val text = listOf(latestVoiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")
+                        latestOnDraft(TextFieldValue(text, TextRange(text.length)))
+                    }
                     listening = false
                 }
                 override fun onPartialResults(results: android.os.Bundle?) {
                     val result = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                    if (!result.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")))
+                    if (!result.isNullOrBlank()) {
+                        val text = listOf(latestVoiceBaseText, result).filter { it.isNotBlank() }.joinToString(" ")
+                        latestOnDraft(TextFieldValue(text, TextRange(text.length)))
+                    }
                 }
                 override fun onEvent(eventType: Int, params: android.os.Bundle?) = Unit
             })
-            onDispose { recognizer.destroy() }
+            onDispose { runCatching { recognizer.cancel(); recognizer.destroy() } }
         }
     }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && startAfterPermission) {
             startAfterPermission = false
-            recognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            })
+            val started = recognizer != null && runCatching { recognizer.startListening(speechRecognitionIntent()) }.isSuccess
+            if (!started) Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
+        } else {
+            startAfterPermission = false
         }
     }
     val systemVoiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-        if (!text.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, text).filter { it.isNotBlank() }.joinToString(" ")))
+        if (!text.isNullOrBlank()) {
+            val combined = listOf(latestVoiceBaseText, text).filter { it.isNotBlank() }.joinToString(" ")
+            latestOnDraft(TextFieldValue(combined, TextRange(combined.length)))
+        }
     }
     fun startSystemVoiceInput() {
+        if (!systemSpeechAvailable) {
+            Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
+            return
+        }
         voiceBaseText = draft.text
-        systemVoiceLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        })
+        runCatching { systemVoiceLauncher.launch(speechRecognitionIntent()) }
+            .onFailure { Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show() }
     }
     fun toggleVoice() {
         if (recognizer == null) {
@@ -599,10 +621,12 @@ private fun ChatComposer(
             listening = false
         } else if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             voiceBaseText = draft.text
-            recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            })
+            runCatching { recognizer.startListening(speechRecognitionIntent()) }
+                .onFailure {
+                    listening = false
+                    if (systemSpeechAvailable) startSystemVoiceInput()
+                    else Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
+                }
         } else {
             voiceBaseText = draft.text
             startAfterPermission = true
@@ -766,6 +790,11 @@ private fun ChatComposer(
             }
         }
     }
+}
+
+private fun speechRecognitionIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
 }
 
 @Composable

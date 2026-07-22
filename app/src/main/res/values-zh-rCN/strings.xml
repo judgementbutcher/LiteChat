@@ -115,5 +115,6 @@
     <string name="unknown_error">发生错误。</string>
     <string name="code">代码</string>
     <string name="voice_input">语音输入</string>
+    <string name="voice_input_unavailable">此设备上没有可用的语音输入服务。</string>
     <string name="stop_recording">停止录音</string>
 </resources>

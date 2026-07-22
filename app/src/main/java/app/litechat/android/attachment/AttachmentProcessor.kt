@@ -9,6 +9,7 @@ import android.provider.OpenableColumns
 import app.litechat.android.network.ChatAttachment
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -24,6 +25,7 @@ class AttachmentProcessor(private val context: Context) {
         const val MAX_BYTES = 10L * 1024 * 1024
         const val MAX_CHARS = 100_000
         const val MAX_IMAGE_EDGE = 2048
+        @Volatile private var pdfBoxInitialized = false
 
         fun truncateText(value: String): Pair<String, Boolean> =
             if (value.length > MAX_CHARS) value.take(MAX_CHARS) to true else value to false
@@ -60,6 +62,7 @@ class AttachmentProcessor(private val context: Context) {
         when {
             mime.startsWith("image/") -> processImage(raw, name, mime)
             mime == "application/pdf" -> {
+                ensurePdfBoxInitialized()
                 val extracted = runCatching { PDDocument.load(raw).use { PDFTextStripper().getText(it) } }
                     .getOrElse { throw AttachmentException("Unable to extract text from $name.") }
                 if (extracted.isBlank()) { raw.delete(); throw AttachmentException("$name contains no extractable text. Scanned PDF OCR is not supported.") }
@@ -125,4 +128,14 @@ class AttachmentProcessor(private val context: Context) {
     }
 
     private fun safeName(value: String) = value.replace(Regex("[^A-Za-z0-9._-]"), "_").take(80).ifBlank { "attachment" }
+
+    private fun ensurePdfBoxInitialized() {
+        if (pdfBoxInitialized) return
+        synchronized(AttachmentProcessor::class.java) {
+            if (!pdfBoxInitialized) {
+                PDFBoxResourceLoader.init(context.applicationContext)
+                pdfBoxInitialized = true
+            }
+        }
+    }
 }

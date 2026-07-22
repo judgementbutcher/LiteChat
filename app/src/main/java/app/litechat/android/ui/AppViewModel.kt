@@ -42,12 +42,18 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val attachments = selectedId.flatMapLatest { id -> id?.let(container.repository::attachments) ?: flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-    val chatUiState = combine(selectedConversation, messages, variants, attachments) { conversation, messages, variants, attachments ->
+    private val variantsByMessage = variants
+        .map { values -> values.groupBy { it.messageId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    private val attachmentsByMessage = attachments
+        .map { values -> values.groupBy { it.messageId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    val chatUiState = combine(selectedConversation, messages, variantsByMessage, attachmentsByMessage) { conversation, messages, variantGroups, attachmentGroups ->
         ChatUiState(
             conversation = conversation,
             messages = messages,
-            variantsByMessage = variants.groupBy { it.messageId },
-            attachmentsByMessage = attachments.groupBy { it.messageId }
+            variantsByMessage = variantGroups,
+            attachmentsByMessage = attachmentGroups
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState())
 

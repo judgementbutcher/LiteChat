@@ -12,7 +12,7 @@ LiteChat is a lightweight, native Android AI chat client. It talks directly from
 
 ## Install the debug APK
 
-The generated artifact is `artifacts/LiteChat-0.7.6-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
+The generated artifact is `artifacts/LiteChat-0.7.7-debug.apk`. Android may ask you to allow installation from the app used to open the file. Debug builds are signed with the standard local Android debug certificate and are intended for testing, not store distribution.
 
 To build it yourself:
 
@@ -37,11 +37,10 @@ Preset endpoints:
 | Anthropic | Messages | `https://api.anthropic.com/v1` |
 | Gemini | `streamGenerateContent` | `https://generativelanguage.googleapis.com/v1beta` |
 | DeepSeek | OpenAI-compatible | `https://api.deepseek.com` |
-| OpenRouter | OpenAI-compatible | `https://openrouter.ai/api/v1` |
 
 Custom endpoints must be valid HTTPS URLs. LiteChat deliberately does not support cleartext LAN endpoints, custom CAs, or an in-app HTTP/SOCKS proxy; it uses Android's normal network and VPN configuration.
 
-Model capabilities are negotiated at request time. LiteChat does not reject an image or hide search because of incomplete model metadata: it maps the requested feature to the selected protocol and lets the provider return the authoritative capability result. OpenRouter uses its native web plugin; other OpenAI-compatible endpoints receive a `web_search` tool request when search is enabled.
+Model capabilities are negotiated at request time. LiteChat does not reject an image or hide search because of incomplete model metadata: it maps the requested feature to the selected protocol and lets the provider return the authoritative capability result. Custom OpenRouter endpoints use its native web plugin; other OpenAI-compatible endpoints receive a `web_search` tool request when search is enabled.
 
 ## Local data and keys
 

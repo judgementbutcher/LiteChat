@@ -139,7 +139,9 @@ class ConversationRepository(
                     is ChatEvent.TextDelta -> {
                         output.append(event.text)
                         val elapsed = SystemClock.elapsedRealtime()
-                        if (elapsed - lastWrite >= 120) {
+                        // Markdown rendering and Room observers sit downstream of each write.
+                        // Five visible updates per second stays fluid while avoiding per-token churn.
+                        if (elapsed - lastWrite >= STREAM_PERSIST_INTERVAL_MS) {
                             db.variantDao().upsert(base.copy(content = output.toString(), updatedAt = System.currentTimeMillis()))
                             lastWrite = elapsed
                         }
@@ -226,5 +228,9 @@ class ConversationRepository(
         paths.asSequence().filter { it.isNotBlank() }.distinct().forEach { path ->
             runCatching { File(path).takeIf(File::isFile)?.delete() }
         }
+    }
+
+    private companion object {
+        const val STREAM_PERSIST_INTERVAL_MS = 200L
     }
 }

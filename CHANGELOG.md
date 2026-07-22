@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.2 - 2026-07-22
+
+### Fixed
+
+- Streaming replies no longer flicker. While a response is generating it is now painted one Markdown block at a time: completed blocks stay fixed and only the newest block repaints as tokens arrive, instead of redrawing the whole answer on every update. Formatting and LaTeX stay live throughout, and the finished reply is unchanged and fully selectable.
+
 ## 0.7.1 - 2026-07-22
 
 ### Fixed

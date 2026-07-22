@@ -683,32 +683,19 @@ private fun ChatComposer(
                         )
                     )
                     Spacer(Modifier.width(4.dp))
-                    AnimatedVisibility(
-                        visible = speechAvailable && !generating,
-                        enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.8f, animationSpec = tween(160)),
-                        exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.8f, animationSpec = tween(120))
-                    ) {
-                        FilledIconButton(
-                            onClick = { toggleVoice() },
-                            modifier = Modifier.size(44.dp),
-                            colors = IconButtonDefaults.filledIconButtonColors(
-                                containerColor = if (listening) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-                                contentColor = if (listening) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        ) {
-                            Icon(if (listening) Lucide.Square else Lucide.Mic, stringResource(if (listening) R.string.stop_recording else R.string.voice_input))
-                        }
-                    }
-                    Spacer(Modifier.width(4.dp))
                     AnimatedContent(
-                        targetState = generating,
+                        targetState = when {
+                            generating -> "stop"
+                            draft.text.isBlank() && pending.isEmpty() && speechAvailable -> "voice"
+                            else -> "send"
+                        },
                         transitionSpec = {
                             (fadeIn(tween(180)) + scaleIn(initialScale = 0.75f, animationSpec = tween(180))) togetherWith
                                 (fadeOut(tween(120)) + scaleOut(targetScale = 0.75f, animationSpec = tween(120)))
                         },
                         label = "send-stop"
-                    ) { isGenerating ->
-                        if (isGenerating) {
+                    ) { action ->
+                        if (action == "stop") {
                             Button(
                                 onClick = stop,
                                 modifier = Modifier.height(44.dp),
@@ -722,6 +709,27 @@ private fun ChatComposer(
                                 Icon(Lucide.Square, null, Modifier.size(15.dp))
                                 Spacer(Modifier.width(7.dp))
                                 Text(stringResource(R.string.stop))
+                            }
+                        } else if (action == "voice") {
+                            FilledIconButton(
+                                onClick = { toggleVoice() },
+                                shape = CircleShape,
+                                modifier = Modifier.size(44.dp),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = if (listening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    contentColor = if (listening) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                if (listening) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        repeat(3) { index ->
+                                            val height = if (index % 2 == 0) 8.dp else 15.dp
+                                            Box(Modifier.width(2.dp).height(height).clip(CircleShape).background(MaterialTheme.colorScheme.onError))
+                                        }
+                                    }
+                                } else {
+                                    Icon(Lucide.Mic, stringResource(R.string.voice_input))
+                                }
                             }
                         } else {
                             FilledIconButton(

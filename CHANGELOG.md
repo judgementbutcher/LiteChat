@@ -2,6 +2,13 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.3 - 2026-07-22
+
+### Added
+
+- Added a ChatGPT-style voice input action to the composer. When the message is empty, the primary action is a blue microphone button; tapping it requests audio permission and inserts live speech transcription into the draft.
+- Recording state now uses a clear stop control and voice waveform treatment, while typed drafts keep the send action.
+
 ## 0.7.2 - 2026-07-22
 
 ### Fixed

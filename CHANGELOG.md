@@ -2,6 +2,17 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.4 - 2026-07-22
+
+### Fixed
+
+- Voice input is now always visible in the composer, including on devices where Android does not report a dedicated speech recognition service.
+- Added a system voice-recognition fallback and kept the microphone affordance beside the primary action to match the ChatGPT mobile composer.
+
+### Improved
+
+- Refined the conversation screen spacing, neutral background, message widths, user bubble shape, and empty state for a closer ChatGPT-style layout.
+
 ## 0.7.3 - 2026-07-22
 
 ### Added

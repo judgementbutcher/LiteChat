@@ -120,7 +120,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
         }
     }
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = MaterialTheme.colorScheme.background,
         modifier = Modifier.windowInsetsPadding(
             WindowInsets.ime.union(WindowInsets.navigationBars).only(WindowInsetsSides.Bottom)
         ),
@@ -152,7 +152,7 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                 navigationIcon = { if (openDrawer != null) AccessibleIconButton(Lucide.Menu, stringResource(R.string.open_navigation), openDrawer) },
                 actions = { AccessibleIconButton(Lucide.Ellipsis, stringResource(R.string.more_options), { settingsOpen = true }) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.background,
                     scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
                 )
             )
@@ -200,22 +200,27 @@ fun ChatScreen(viewModel: AppViewModel, conversationId: String, openDrawer: (() 
                         verticalArrangement = Arrangement.Center
                     ) {
                         Surface(
-                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            contentColor = MaterialTheme.colorScheme.background,
                             shape = CircleShape
-                        ) { Icon(Lucide.MessageCircle, null, Modifier.padding(18.dp).size(28.dp)) }
-                        Spacer(Modifier.height(18.dp))
-                        Text(stringResource(R.string.empty_chat), style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(6.dp))
+                        ) { Icon(Lucide.Sparkles, null, Modifier.padding(16.dp).size(24.dp)) }
+                        Spacer(Modifier.height(20.dp))
+                        Text(
+                            stringResource(R.string.empty_chat),
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(Modifier.height(10.dp))
                         if (conversation?.providerId == null) TextButton(openProviders) { Text(stringResource(R.string.no_key_hint)) }
                     }
                 }
             } else {
                 val lastAssistantIndex = uiState.messages.indexOfLast { it.role == "assistant" }
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(22.dp)
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(28.dp)
                 ) {
                     itemsIndexed(
                         items = uiState.messages,
@@ -310,13 +315,13 @@ private fun MessageItem(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Center) {
         if (isUser) {
             Column(
-                modifier = Modifier.widthIn(max = 560.dp),
+                modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth(0.84f),
                 horizontalAlignment = Alignment.End
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurface,
-                    shape = MaterialTheme.shapes.large
+                    shape = RoundedCornerShape(22.dp)
                 ) {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                         if (attachments.isNotEmpty()) SentAttachments(attachments)
@@ -326,7 +331,7 @@ private fun MessageItem(
                 UserActions(content, onEdit)
             }
         } else {
-            Column(Modifier.widthIn(max = 800.dp).fillMaxWidth()) {
+            Column(Modifier.widthIn(max = 800.dp).fillMaxWidth().padding(horizontal = 8.dp)) {
                 if (content.isNotEmpty()) {
                     MarkdownContent(content, markdownRenderer, Modifier.fillMaxWidth(), streaming = selected?.status == MessageStatus.STREAMING)
                 }
@@ -532,6 +537,7 @@ private fun ChatComposer(
 ) {
     val context = LocalContext.current
     val speechAvailable = remember { SpeechRecognizer.isRecognitionAvailable(context) }
+    val voiceInputAvailable = true
     var listening by remember { mutableStateOf(false) }
     var startAfterPermission by remember { mutableStateOf(false) }
     var voiceBaseText by remember { mutableStateOf("") }
@@ -572,8 +578,22 @@ private fun ChatComposer(
             })
         }
     }
+    val systemVoiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val text = result.data?.getStringArrayListExtra(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+        if (!text.isNullOrBlank()) latestOnDraft(latestDraft.copy(text = listOf(voiceBaseText, text).filter { it.isNotBlank() }.joinToString(" ")))
+    }
+    fun startSystemVoiceInput() {
+        voiceBaseText = draft.text
+        systemVoiceLauncher.launch(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        })
+    }
     fun toggleVoice() {
-        if (recognizer == null) return
+        if (recognizer == null) {
+            startSystemVoiceInput()
+            return
+        }
         if (listening) {
             recognizer.stopListening()
             listening = false
@@ -683,10 +703,19 @@ private fun ChatComposer(
                         )
                     )
                     Spacer(Modifier.width(4.dp))
+                    if (!generating) {
+                        AccessibleIconButton(
+                            Lucide.Mic,
+                            stringResource(R.string.voice_input),
+                            { toggleVoice() },
+                            enabled = !listening
+                        )
+                    }
+                    Spacer(Modifier.width(2.dp))
                     AnimatedContent(
                         targetState = when {
                             generating -> "stop"
-                            draft.text.isBlank() && pending.isEmpty() && speechAvailable -> "voice"
+                            draft.text.isBlank() && pending.isEmpty() && voiceInputAvailable -> "voice"
                             else -> "send"
                         },
                         transitionSpec = {

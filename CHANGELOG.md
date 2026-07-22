@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.6 - 2026-07-22
+
+### Fixed
+
+- Removed the duplicate microphone in the composer. The empty message state now shows a single voice button, matching the ChatGPT mobile layout instead of two side-by-side microphones that triggered the same dictation action.
+
 ## 0.7.5 - 2026-07-22
 
 ### Fixed

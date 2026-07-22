@@ -703,15 +703,6 @@ private fun ChatComposer(
                         )
                     )
                     Spacer(Modifier.width(4.dp))
-                    if (!generating) {
-                        AccessibleIconButton(
-                            Lucide.Mic,
-                            stringResource(R.string.voice_input),
-                            { toggleVoice() },
-                            enabled = !listening
-                        )
-                    }
-                    Spacer(Modifier.width(2.dp))
                     AnimatedContent(
                         targetState = when {
                             generating -> "stop"

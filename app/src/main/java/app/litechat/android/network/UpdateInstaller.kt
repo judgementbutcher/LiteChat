@@ -22,7 +22,7 @@ class UpdateInstaller(private val context: Context, private val client: OkHttpCl
         temporary.delete()
         try {
             val digest = MessageDigest.getInstance("SHA-256")
-            client.newCall(Request.Builder().url(release.apkUrl).build()).execute().use { response ->
+            client.newCall(Request.Builder().url(release.apkUrl).header("User-Agent", "LiteChat/${app.litechat.android.BuildConfig.VERSION_NAME}").build()).execute().use { response ->
                 if (!response.isSuccessful) throw IllegalStateException("APK download returned HTTP ${response.code}.")
                 val body = response.body ?: throw IllegalStateException("APK download was empty.")
                 body.byteStream().use { input ->
@@ -70,7 +70,7 @@ class UpdateInstaller(private val context: Context, private val client: OkHttpCl
     }
 
     private fun checksum(url: String): String {
-        client.newCall(Request.Builder().url(url).build()).execute().use { response ->
+        client.newCall(Request.Builder().url(url).header("User-Agent", "LiteChat/${app.litechat.android.BuildConfig.VERSION_NAME}").build()).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("Checksum download returned HTTP ${response.code}.")
             val value = SHA_256.find(response.body?.string().orEmpty())?.value
                 ?: throw IllegalStateException("Release checksum is invalid.")

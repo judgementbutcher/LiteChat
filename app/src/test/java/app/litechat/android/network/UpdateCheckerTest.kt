@@ -30,6 +30,26 @@ class UpdateCheckerTest {
             assertEquals("v0.6.2", release.tag)
             assertEquals("https://example.com/app.apk", release.apkUrl)
             assertEquals("https://example.com/app.apk.sha256", release.checksumUrl)
+            assertEquals("LiteChat/${app.litechat.android.BuildConfig.VERSION_NAME}", server.takeRequest().getHeader("User-Agent"))
+        }
+    }
+
+    @Test fun fallsBackToPublicLatestPageWhenApiIsRateLimited() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setResponseCode(403).setBody("{\"message\":\"rate limit exceeded\"}"))
+            server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "/releases/tag/v0.7.4"))
+            server.enqueue(MockResponse().setBody("release"))
+            server.start()
+
+            val release = UpdateChecker(
+                OkHttpClient(),
+                server.url("/api/latest").toString(),
+                server.url("/releases/latest").toString()
+            ).check()
+
+            assertEquals("v0.7.4", release.tag)
+            assertEquals("https://github.com/judgementbutcher/LiteChat/releases/download/v0.7.4/LiteChat-0.7.4-debug.apk", release.apkUrl)
+            assertEquals(3, server.requestCount)
         }
     }
 

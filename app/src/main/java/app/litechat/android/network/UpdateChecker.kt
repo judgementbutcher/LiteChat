@@ -18,7 +18,8 @@ data class ReleaseInfo(
 
 class UpdateChecker(
     private val client: OkHttpClient,
-    private val releasesUrl: String = "https://api.github.com/repos/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest"
+    private val releasesUrl: String = "https://api.github.com/repos/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest",
+    private val latestPageUrl: String = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/latest"
 ) {
     val enabled = BuildConfig.GITHUB_OWNER.isNotBlank() && BuildConfig.GITHUB_REPO.isNotBlank()
     suspend fun check(): ReleaseInfo = withContext(Dispatchers.IO) {
@@ -26,9 +27,13 @@ class UpdateChecker(
         val request = Request.Builder()
             .url(releasesUrl)
             .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "LiteChat/${BuildConfig.VERSION_NAME}")
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IllegalStateException("GitHub returned HTTP ${response.code}.")
+            if (!response.isSuccessful) {
+                if (response.code == 403 || response.code == 429) return@withContext checkViaLatestPage(response.code)
+                throw IllegalStateException("GitHub returned HTTP ${response.code}: ${response.errorSummary()}.")
+            }
             val root = wireJson.parseToJsonElement(response.body?.string().orEmpty()).jsonObject
             val tag = root.getValue("tag_name").jsonPrimitive.content
             val version = tag.removePrefix("v")
@@ -44,6 +49,38 @@ class UpdateChecker(
                 checksumUrl = assetUrl("LiteChat-$version-debug.apk.sha256")
             )
         }
+    }
+
+    private fun checkViaLatestPage(apiCode: Int): ReleaseInfo {
+        val request = Request.Builder()
+            .url(latestPageUrl)
+            .header("User-Agent", "LiteChat/${BuildConfig.VERSION_NAME}")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IllegalStateException(
+                    "GitHub update check was rate-limited (HTTP $apiCode), and the fallback page returned HTTP ${response.code}."
+                )
+            }
+            val tag = response.request.url.pathSegments.lastOrNull()
+                ?.takeIf { it.startsWith("v") && it.length > 1 }
+                ?: throw IllegalStateException("GitHub latest release did not include a version tag.")
+            val version = tag.removePrefix("v")
+            val base = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/download/$tag"
+            return ReleaseInfo(
+                tag = tag,
+                url = "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/tag/$tag",
+                apkUrl = "$base/LiteChat-$version-debug.apk",
+                checksumUrl = "$base/LiteChat-$version-debug.apk.sha256"
+            )
+        }
+    }
+
+    private fun okhttp3.Response.errorSummary(): String {
+        val message = runCatching {
+            wireJson.parseToJsonElement(body?.string().orEmpty()).jsonObject["message"]?.jsonPrimitive?.content
+        }.getOrNull()
+        return message ?: "request failed"
     }
 }
 

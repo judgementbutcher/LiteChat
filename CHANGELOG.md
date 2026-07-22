@@ -2,6 +2,13 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.5 - 2026-07-22
+
+### Fixed
+
+- Update checks now identify themselves to GitHub and fall back to the public latest-release page when the anonymous API is rate-limited with HTTP 403/429.
+- APK and checksum downloads include the same client identity for more reliable GitHub asset delivery.
+
 ## 0.7.4 - 2026-07-22
 
 ### Fixed

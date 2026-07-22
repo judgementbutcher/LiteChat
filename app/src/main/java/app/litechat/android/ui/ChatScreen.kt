@@ -7,6 +7,8 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.util.LruCache
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,6 +78,27 @@ import io.noties.markwon.Markwon
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+
+private val attachmentDecodeDispatcher = Dispatchers.IO.limitedParallelism(2)
+
+private object AttachmentBitmapCache {
+    private const val MAX_SIZE_KIB = 24 * 1024
+    private val cache = object : LruCache<String, Bitmap>(MAX_SIZE_KIB) {
+        override fun sizeOf(key: String, value: Bitmap): Int =
+            (value.allocationByteCount / 1024).coerceAtLeast(1)
+    }
+
+    private fun key(path: String, maxEdge: Int): String {
+        val file = File(path)
+        return "$path#${file.length()}#${file.lastModified()}#$maxEdge"
+    }
+
+    fun get(path: String, maxEdge: Int): Bitmap? = cache.get(key(path, maxEdge))
+    fun put(path: String, maxEdge: Int, bitmap: Bitmap) {
+        cache.put(key(path, maxEdge), bitmap)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -475,8 +498,8 @@ private fun SearchActivityRow(summary: String) {
 
 @Composable
 private fun SentAttachments(attachments: List<AttachmentEntity>) {
-    val images = attachments.filter { it.mimeType.startsWith("image/") }
-    val files = attachments.filterNot { it.mimeType.startsWith("image/") }
+    val images = remember(attachments) { attachments.filter { it.mimeType.startsWith("image/") } }
+    val files = remember(attachments) { attachments.filterNot { it.mimeType.startsWith("image/") } }
     var preview by remember { mutableStateOf<AttachmentEntity?>(null) }
     if (images.isNotEmpty()) {
         Row(
@@ -543,12 +566,9 @@ private fun ChatComposer(
     val speechAvailable = remember(context) {
         runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
     }
-    val systemSpeechAvailable = remember(context) {
-        runCatching {
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).resolveActivity(context.packageManager) != null
-        }.getOrDefault(false)
-    }
-    val voiceInputAvailable = speechAvailable || systemSpeechAvailable
+    // Some vendor ROMs report no recognizer even though their system voice activity works.
+    // Discovery must not hide the microphone; actual launch failures are handled below.
+    val voiceInputAvailable = true
     var listening by remember { mutableStateOf(false) }
     var startAfterPermission by remember { mutableStateOf(false) }
     var voiceBaseText by remember { mutableStateOf("") }
@@ -586,15 +606,6 @@ private fun ChatComposer(
             onDispose { runCatching { recognizer.cancel(); recognizer.destroy() } }
         }
     }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && startAfterPermission) {
-            startAfterPermission = false
-            val started = recognizer != null && runCatching { recognizer.startListening(speechRecognitionIntent()) }.isSuccess
-            if (!started) Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
-        } else {
-            startAfterPermission = false
-        }
-    }
     val systemVoiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val text = result.data?.getStringArrayListExtra(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
         if (!text.isNullOrBlank()) {
@@ -603,13 +614,18 @@ private fun ChatComposer(
         }
     }
     fun startSystemVoiceInput() {
-        if (!systemSpeechAvailable) {
-            Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
-            return
-        }
         voiceBaseText = draft.text
         runCatching { systemVoiceLauncher.launch(speechRecognitionIntent()) }
             .onFailure { Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show() }
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && startAfterPermission) {
+            startAfterPermission = false
+            val started = recognizer != null && runCatching { recognizer.startListening(speechRecognitionIntent()) }.isSuccess
+            if (!started) startSystemVoiceInput()
+        } else {
+            startAfterPermission = false
+        }
     }
     fun toggleVoice() {
         if (recognizer == null) {
@@ -624,8 +640,7 @@ private fun ChatComposer(
             runCatching { recognizer.startListening(speechRecognitionIntent()) }
                 .onFailure {
                     listening = false
-                    if (systemSpeechAvailable) startSystemVoiceInput()
-                    else Toast.makeText(context, voiceUnavailableMessage, Toast.LENGTH_SHORT).show()
+                    startSystemVoiceInput()
                 }
         } else {
             voiceBaseText = draft.text
@@ -824,14 +839,16 @@ private fun AttachmentThumbnail(
     contentScale: ContentScale = ContentScale.Crop,
     maxEdge: Int = 128
 ) {
-    val bitmap by produceState<android.graphics.Bitmap?>(null, path, maxEdge) {
-        value = withContext(Dispatchers.IO) {
+    val bitmap by produceState(AttachmentBitmapCache.get(path, maxEdge), path, maxEdge) {
+        if (value != null) return@produceState
+        value = withContext(attachmentDecodeDispatcher) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(path, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
             var sample = 1
             while (bounds.outWidth / sample > maxEdge * 2 || bounds.outHeight / sample > maxEdge * 2) sample *= 2
             BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
-        }
+        }?.also { AttachmentBitmapCache.put(path, maxEdge, it) }
     }
     if (bitmap != null) Image(bitmap!!.asImageBitmap(), contentDescription, modifier, contentScale = contentScale)
     else Box(modifier, contentAlignment = Alignment.Center) { Icon(Lucide.Image, contentDescription) }
@@ -879,12 +896,15 @@ private fun FullScreenImagePreview(path: String, name: String, dismiss: () -> Un
 @Composable
 private fun ModelPicker(conversation: ConversationEntity, models: List<ModelConfigEntity>, dismiss: () -> Unit, select: (ModelConfigEntity) -> Unit) {
     var query by remember { mutableStateOf("") }
+    val filteredModels = remember(models, query) {
+        models.filter { it.enabled && (query.isBlank() || it.displayName.contains(query, true) || it.modelId.contains(query, true)) }
+    }
     ModalBottomSheet(onDismissRequest = dismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding()) {
             Text(stringResource(R.string.choose_model), style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), singleLine = true, leadingIcon = { Icon(Lucide.Search, null) }, placeholder = { Text(stringResource(R.string.search_models)) })
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
-                models.filter { it.enabled && (query.isBlank() || it.displayName.contains(query, true) || it.modelId.contains(query, true)) }.forEach { model ->
+                filteredModels.forEach { model ->
                     item(key = "${model.providerId}/${model.modelId}") {
                         ListItem(
                             headlineContent = { Text(model.displayName) },

@@ -17,5 +17,7 @@ class FirstRunSmokeTest {
         compose.onAllNodesWithText("New chat").onLast().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Start a private, local-first conversation.").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Start a private, local-first conversation.").assertExists()
+        compose.onNodeWithContentDescription(compose.activity.getString(app.litechat.android.R.string.voice_input))
+            .assertIsDisplayed()
     }
 }

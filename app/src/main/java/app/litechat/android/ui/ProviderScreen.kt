@@ -20,6 +20,7 @@ import java.util.UUID
 fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
     val providers by viewModel.providers.collectAsStateWithLifecycle()
     val models by viewModel.models.collectAsStateWithLifecycle()
+    val modelsByProvider = remember(models) { models.groupBy { it.providerId } }
     val statuses by viewModel.providerStatus.collectAsStateWithLifecycle()
     var editingProvider by remember { mutableStateOf<ProviderConfigEntity?>(null) }
     var addProvider by remember { mutableStateOf(false) }
@@ -62,7 +63,7 @@ fun ProviderScreen(viewModel: AppViewModel, openDrawer: (() -> Unit)?) {
                             Spacer(Modifier.width(8.dp))
                             TextButton(onClick = { editingModel = ModelConfigEntity(provider.id, "", "") }) { Text(stringResource(R.string.add_model)) }
                         }
-                        models.filter { it.providerId == provider.id }.forEach { model ->
+                        modelsByProvider[provider.id].orEmpty().forEach { model ->
                             HorizontalDivider()
                             Row(Modifier.fillMaxWidth()) {
                                 Column(Modifier.weight(1f)) {

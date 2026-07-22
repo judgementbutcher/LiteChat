@@ -219,6 +219,9 @@ class ConversationRepository(
     suspend fun hasKey(providerId: String) = secrets.has(providerId)
     suspend fun apiKey(providerId: String) = secrets.get(providerId).orEmpty()
     suspend fun saveModel(model: ModelConfigEntity) = db.modelDao().upsert(model)
+    suspend fun saveModels(models: List<ModelConfigEntity>) {
+        if (models.isNotEmpty()) db.modelDao().upsertAll(models)
+    }
     suspend fun saveTemplate(value: PromptTemplateEntity) = db.promptTemplateDao().upsert(value)
     suspend fun deleteTemplate(value: PromptTemplateEntity) = db.promptTemplateDao().delete(value)
 

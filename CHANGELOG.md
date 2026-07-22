@@ -2,6 +2,19 @@
 
 All notable user-facing changes are documented here. LiteChat follows semantic versioning.
 
+## 0.7.8 - 2026-07-22
+
+### Fixed
+
+- Restored the voice-input microphone on devices whose Android speech-service discovery incorrectly reports that recognition is unavailable. The microphone now remains visible, falls back to the system voice activity when needed, and handles launch failures without crashing.
+
+### Improved
+
+- Reused unchanged response groups during streaming so historical message rows can skip unnecessary Compose work while the latest answer grows.
+- Added a bounded attachment bitmap cache and limited concurrent image decoding to reduce repeated work, memory spikes and scroll hitching.
+- Batched newly discovered provider models into one database write instead of refreshing the model list after every item.
+- Cached provider/model groupings and model-search results to reduce repeated list scans during recomposition.
+
 ## 0.7.7 - 2026-07-22
 
 ### Fixed

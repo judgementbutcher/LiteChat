@@ -43,7 +43,9 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
     val attachments = selectedId.flatMapLatest { id -> id?.let(container.repository::attachments) ?: flowOf(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val variantsByMessage = variants
-        .map { values -> values.groupBy { it.messageId } }
+        .scan(emptyMap<String, List<ResponseVariantEntity>>()) { previous, values ->
+            stableVariantGroups(values, previous)
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
     private val attachmentsByMessage = attachments
         .map { values -> values.groupBy { it.messageId } }
@@ -167,7 +169,13 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
             if (key.isBlank()) error(text(app.litechat.android.R.string.save_key_first))
             container.providerApi.listModels(provider, key)
         }.onSuccess { list ->
-            list.forEach { modelId -> if (models.value.none { it.providerId == provider.id && it.modelId == modelId }) container.repository.saveModel(ModelConfigEntity(provider.id, modelId, modelId)) }
+            val existingIds = models.value.asSequence()
+                .filter { it.providerId == provider.id }
+                .mapTo(hashSetOf()) { it.modelId }
+            val additions = list.distinct()
+                .filterNot { it in existingIds }
+                .map { modelId -> ModelConfigEntity(provider.id, modelId, modelId) }
+            container.repository.saveModels(additions)
             providerStatus.value += provider.id to text(app.litechat.android.R.string.connected_models, list.size)
         }
             .onFailure { providerStatus.value += provider.id to (it.message ?: text(app.litechat.android.R.string.connection_failed)) }
@@ -254,4 +262,22 @@ class AppViewModel(private val container: AppContainer) : ViewModel() {
         /** Quiet period before a typed conversation search hits the database; empty query is immediate. */
         private const val SEARCH_DEBOUNCE_MS = 220L
     }
+}
+
+internal fun stableVariantGroups(
+    values: List<ResponseVariantEntity>,
+    previous: Map<String, List<ResponseVariantEntity>>
+): Map<String, List<ResponseVariantEntity>> = values.groupBy { it.messageId }.mapValues { (messageId, current) ->
+    previous[messageId]?.takeIf { old ->
+        old.size == current.size && old.indices.all { index ->
+            val prior = old[index]
+            val next = current[index]
+            prior.id == next.id &&
+                prior.updatedAt == next.updatedAt &&
+                prior.content.length == next.content.length &&
+                prior.status == next.status &&
+                prior.errorMessage == next.errorMessage &&
+                prior.searchSummary == next.searchSummary
+        }
+    } ?: current
 }
